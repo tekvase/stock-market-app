@@ -1,0 +1,92 @@
+<div class="stock-detail-container">
+  <button class="back-button" (click)="goBack()">
+    ← Back to Dashboard
+  </button>
+
+  <div *ngIf="loading" class="loading">Loading stock details...</div>
+
+  <div *ngIf="!loading && !stock" class="not-found">
+    <h2>Stock not found</h2>
+    <p>The stock symbol "{{ symbol }}" could not be found.</p>
+  </div>
+
+  <div *ngIf="!loading && stock" class="detail-content">
+    <div class="stock-header">
+      <div class="title-section">
+        <h1 class="stock-symbol">{{ stock.symbol }}</h1>
+        <p class="stock-name">{{ stock.name }}</p>
+      </div>
+      <div class="price-section">
+        <div class="current-price">{{ stock.price | currency }}</div>
+        <div class="price-change" [ngClass]="stock.change >= 0 ? 'positive' : 'negative'">
+          <span>{{ stock.change >= 0 ? '+' : '' }}{{ stock.change | number:'1.2-2' }}</span>
+          <span>({{ stock.change >= 0 ? '+' : '' }}{{ stock.changePercent | number:'1.2-2' }}%)</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Open</div>
+        <div class="stat-value">{{ stock.open | currency }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">High</div>
+        <div class="stat-value">{{ stock.high | currency }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Low</div>
+        <div class="stat-value">{{ stock.low | currency }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Volume</div>
+        <div class="stat-value">{{ stock.volume | number }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Market Cap</div>
+        <div class="stat-value">{{ stock.marketCap }}</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Previous Close</div>
+        <div class="stat-value">{{ stock.previousClose || (stock.price - stock.change) | currency }}</div>
+      </div>
+    </div>
+
+    <div class="chart-section">
+      <h2>Price History (Last 30 Days)</h2>
+      <div class="chart-container">
+        <div class="chart">
+          <div *ngFor="let point of stockHistory; let i = index" class="bar-container">
+            <div
+              class="bar"
+              [style.height.%]="(point.price / getMaxPrice()) * 100"
+              [title]="point.date + ': ' + (point.price | currency)"
+            ></div>
+          </div>
+        </div>
+        <div class="chart-labels">
+          <span>{{ stockHistory[0]?.date }}</span>
+          <span>{{ stockHistory[stockHistory.length - 1]?.date }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="history-table">
+      <h2>Recent Price Data</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Price</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let point of stockHistory.slice().reverse().slice(0, 10)">
+            <td>{{ point.date }}</td>
+            <td>{{ point.price | currency }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

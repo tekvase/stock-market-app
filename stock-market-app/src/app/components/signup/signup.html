@@ -1,0 +1,113 @@
+<div class="signup-container">
+  <div class="signup-card">
+    <div class="signup-header">
+      <h1>📈 Stock Market App</h1>
+      <h2>Create Account</h2>
+      <p>Sign up to start tracking stocks</p>
+    </div>
+
+    <form (ngSubmit)="onSubmit()" class="signup-form">
+      <div class="name-row">
+        <div class="form-group">
+          <label for="firstName">First Name</label>
+          <input
+            type="text"
+            id="firstName"
+            [(ngModel)]="firstName"
+            name="firstName"
+            placeholder="First name"
+            required
+            [disabled]="isLoading"
+          />
+        </div>
+        <div class="form-group">
+          <label for="lastName">Last Name</label>
+          <input
+            type="text"
+            id="lastName"
+            [(ngModel)]="lastName"
+            name="lastName"
+            placeholder="Last name"
+            required
+            [disabled]="isLoading"
+          />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          type="email"
+          id="email"
+          [(ngModel)]="email"
+          name="email"
+          placeholder="Enter your email"
+          required
+          [disabled]="isLoading"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          type="password"
+          id="password"
+          [(ngModel)]="password"
+          name="password"
+          placeholder="Create a password (min 6 characters)"
+          required
+          [disabled]="isLoading"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input
+          type="password"
+          id="confirmPassword"
+          [(ngModel)]="confirmPassword"
+          name="confirmPassword"
+          placeholder="Confirm your password"
+          required
+          [disabled]="isLoading"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="accessCode">Access Level</label>
+        <select
+          id="accessCode"
+          [(ngModel)]="accessCode"
+          name="accessCode"
+          [disabled]="isLoading"
+        >
+          <option [ngValue]="10">Full Access</option>
+          <option [ngValue]="1">Watch List Only</option>
+          <option [ngValue]="2">Watch List + Stock Recommendations</option>
+          <option [ngValue]="3">Watch List + Stock Recommendations + News</option>
+        </select>
+      </div>
+
+      <div *ngIf="errorMessage" class="error-message">
+        <div class="error-text">{{ errorMessage }}</div>
+        <div *ngIf="showLoginPrompt" class="error-actions">
+          <button type="button" class="retry-button" (click)="email = ''; password = ''; confirmPassword = ''; errorMessage = ''; showLoginPrompt = false">
+            Try Different Email
+          </button>
+          <button type="button" class="login-button-error" (click)="goToLogin()">
+            Sign In Instead
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="signup-button" [disabled]="isLoading">
+        <span *ngIf="!isLoading">Create Account</span>
+        <span *ngIf="isLoading">Creating Account...</span>
+      </button>
+    </form>
+
+    <div class="login-link">
+      <p>Already have an account? <a [routerLink]="['/login']">Sign in here</a></p>
+    </div>
+  </div>
+</div>

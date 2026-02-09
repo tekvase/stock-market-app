@@ -1,0 +1,249 @@
+<div class="dashboard-container">
+  <!-- Header -->
+  <div class="header">
+    <h1>Welcome{{ userName ? ', ' + userName : '' }}</h1>
+    <div class="header-right">
+      <button class="logout-button" (click)="logout()">Logout</button>
+    </div>
+  </div>
+
+  <!-- Search Bar (visible only on watchlist tab) -->
+  <div class="search-section" *ngIf="activeTab === 'watchlist'">
+    <form (submit)="onSearchSubmit($event)" class="search-form">
+      <input
+        type="text"
+        [(ngModel)]="searchTerm"
+        name="searchTerm"
+        (input)="onSearchChange($event)"
+        placeholder="Search for symbol (e.g. AAPL) and press Enter"
+        class="search-input"
+        aria-label="Search for stock symbol"
+      />
+      <button type="submit" class="search-button" [disabled]="searchingSymbol || !searchTerm.trim()">
+        {{ searchingSymbol ? 'Searching...' : 'Search' }}
+      </button>
+    </form>
+  </div>
+
+  <div *ngIf="searchError" class="error-message" role="alert">{{ searchError }}</div>
+
+  <!-- Search Result Popup -->
+  <div *ngIf="showSearchPopup" class="popup-overlay" (click)="closeSearchPopup()" role="dialog" aria-modal="true" aria-label="Stock search result">
+    <div class="popup-content" (click)="$event.stopPropagation()">
+      <div class="popup-header">
+        <h3>Stock Found</h3>
+        <button class="close-btn" (click)="closeSearchPopup()" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="popup-body" *ngIf="searchResult">
+        <div class="stock-info">
+          <div class="stock-symbol">{{ searchResult.symbol }}</div>
+          <div class="stock-name">{{ searchResult.name }}</div>
+          <div class="stock-price">${{ searchResult.price | number:'1.2-2' }}</div>
+          <div class="stock-change" [class.positive]="searchResult.change >= 0" [class.negative]="searchResult.change < 0">
+            {{ searchResult.change >= 0 ? '+' : '' }}{{ searchResult.change | number:'1.2-2' }} ({{ searchResult.changePercent | number:'1.2-2' }}%)
+          </div>
+        </div>
+        <div class="popup-actions">
+          <button class="add-btn" (click)="addStockFromPopup()">ADD TO WATCHLIST</button>
+          <button class="cancel-btn" (click)="closeSearchPopup()">CANCEL</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="tab-nav" role="tablist" aria-label="Dashboard sections">
+    <button
+      *ngFor="let tab of tabs; let i = index"
+      [id]="'tab-' + tab.id"
+      role="tab"
+      [attr.aria-selected]="activeTab === tab.id"
+      [attr.aria-controls]="'panel-' + tab.id"
+      [attr.tabindex]="activeTab === tab.id ? 0 : -1"
+      [class.tab-active]="activeTab === tab.id"
+      class="tab-button"
+      (click)="selectTab(tab.id)"
+      (keydown)="onTabKeydown($event, i)"
+    >
+      {{ tab.label }}
+    </button>
+  </div>
+
+  <!-- Tab Panels -->
+
+  <!-- Stock Watch List Panel -->
+  <div
+    id="panel-watchlist"
+    role="tabpanel"
+    aria-labelledby="tab-watchlist"
+    [attr.tabindex]="0"
+    *ngIf="activeTab === 'watchlist'"
+    class="section tab-panel"
+  >
+    <div *ngIf="loading" class="loading" role="status" aria-live="polite">Loading stocks...</div>
+
+    <div *ngIf="!loading" class="table-container">
+      <table class="stock-table" aria-label="Stock watch list">
+        <thead>
+          <tr>
+            <th scope="col">No</th>
+            <th scope="col">Symbol</th>
+            <th scope="col">Current Price</th>
+            <th scope="col">Buy Price</th>
+            <th scope="col">%</th>
+            <th scope="col">Stop Loss</th>
+            <th scope="col">Target 1 (20%)</th>
+            <th scope="col">Target 2 (25%)</th>
+            <th scope="col">Target 3 (30%)</th>
+            <th scope="col"><span class="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let stock of getFilteredStocks(); let i = index">
+            <td>{{ i + 1 }}</td>
+            <td>
+              <a [routerLink]="['/stock', stock.symbol]" class="symbol-link">
+                {{ stock.symbol }}
+              </a>
+              <div class="stock-name-small">{{ stock.name }}</div>
+            </td>
+            <td [class.positive]="stock.change >= 0" [class.negative]="stock.change < 0">
+              {{ stock.price | number:'1.2-2' }}
+            </td>
+            <td class="buy-price-cell">
+              <span *ngIf="editingSymbol !== stock.symbol" class="buy-price-display" (dblclick)="startEditBuyPrice(stock)" title="Double-click to edit">
+                {{ stock.buyPrice | number:'1.2-2' }}
+              </span>
+              <div *ngIf="editingSymbol === stock.symbol" class="buy-price-edit">
+                <input
+                  type="number"
+                  [(ngModel)]="editBuyPrice"
+                  (keydown)="onEditKeydown($event, stock)"
+                  (blur)="saveBuyPrice(stock)"
+                  class="edit-input"
+                  step="0.01"
+                  min="0.01"
+                  autofocus
+                />
+              </div>
+            </td>
+            <td>
+              <span class="pct-diff" [ngClass]="getPriceDiffPercent(stock) >= 0 ? 'pct-positive' : 'pct-negative'">
+                {{ getPriceDiffPercent(stock) >= 0 ? '+' : '' }}{{ getPriceDiffPercent(stock) | number:'1.2-2' }}%
+              </span>
+            </td>
+            <td class="stop-loss">{{ stock.stopLoss | number:'1.2-2' }}</td>
+            <td class="target">{{ stock.targetPrice1 | number:'1.2-2' }}</td>
+            <td class="target">{{ stock.targetPrice2 | number:'1.2-2' }}</td>
+            <td class="target">{{ stock.targetPrice3 | number:'1.2-2' }}</td>
+            <td>
+              <button class="delete-button" (click)="deleteStock(stock.symbol)" [attr.aria-label]="'Remove ' + stock.symbol + ' from list'">&times;</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="getFilteredStocks().length === 0" class="no-data">
+        No stocks in your list. Search for a symbol above to add.
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Recommendation Panel -->
+  <div
+    id="panel-recommendations"
+    role="tabpanel"
+    aria-labelledby="tab-recommendations"
+    [attr.tabindex]="0"
+    *ngIf="activeTab === 'recommendations'"
+    class="section tab-panel"
+  >
+    <div class="placeholder-content">
+      <p>Coming soon...</p>
+    </div>
+  </div>
+
+  <!-- Weekly Earnings Panel -->
+  <div
+    id="panel-earnings"
+    role="tabpanel"
+    aria-labelledby="tab-earnings"
+    [attr.tabindex]="0"
+    *ngIf="activeTab === 'earnings'"
+    class="section tab-panel"
+  >
+    <h2 class="panel-title">Weekly Earnings <span class="week-label" *ngIf="earningsWeekLabel">({{ earningsWeekLabel }})</span></h2>
+    <div *ngIf="loadingEarnings" class="loading" role="status" aria-live="polite">Loading earnings...</div>
+    <div *ngIf="!loadingEarnings" class="table-container">
+      <table class="stock-table earnings-table" *ngIf="weeklyEarnings.length > 0" aria-label="Weekly earnings calendar">
+        <thead>
+          <tr>
+            <th scope="col">Date</th>
+            <th scope="col">Symbol</th>
+            <th scope="col">Time</th>
+            <th scope="col">EPS Estimate</th>
+            <th scope="col">Revenue Estimate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let earning of weeklyEarnings">
+            <td>{{ earning.Date | date:'MMM d' }}</td>
+            <td class="symbol-link">{{ earning.Symbol }}</td>
+            <td>
+              <span [class.earnings-bmo]="earning.Time === 'bmo'" [class.earnings-amc]="earning.Time === 'amc'">
+                {{ getEarningsTime(earning.Time) }}
+              </span>
+            </td>
+            <td>
+              <span *ngIf="earning.EpsEstimate !== null"
+                [class.eps-negative]="earning.EpsEstimate < 0"
+                [class.eps-low]="earning.EpsEstimate >= 0 && earning.EpsEstimate <= 1"
+                [class.eps-normal]="earning.EpsEstimate > 1 && earning.EpsEstimate <= 5"
+                [class.eps-strong]="earning.EpsEstimate > 5"
+                [title]="getEpsTooltip(earning.EpsEstimate)">
+                {{ earning.EpsEstimate | number:'1.3-3' }}
+              </span>
+              <span *ngIf="earning.EpsEstimate === null">-</span>
+            </td>
+            <td>{{ formatRevenue(earning.RevenueEstimate) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div *ngIf="weeklyEarnings.length === 0" class="no-data">
+        No earnings scheduled for this week.
+      </div>
+    </div>
+  </div>
+
+  <!-- News Panel -->
+  <div
+    id="panel-news"
+    role="tabpanel"
+    aria-labelledby="tab-news"
+    [attr.tabindex]="0"
+    *ngIf="activeTab === 'news'"
+    class="section tab-panel"
+  >
+    <div *ngIf="loadingNews" class="loading" role="status" aria-live="polite">Loading news...</div>
+    <div *ngIf="!loadingNews" class="news-list">
+      <article *ngFor="let item of news" class="news-item">
+        <div class="news-header-row">
+          <a [href]="item.url" target="_blank" rel="noopener noreferrer" class="news-title-link">{{ item.title }}</a>
+          <span
+            class="sentiment-badge"
+            [class.sentiment-positive]="item.sentiment === 'positive'"
+            [class.sentiment-negative]="item.sentiment === 'negative'"
+            [class.sentiment-neutral]="item.sentiment === 'neutral'"
+          >{{ item.sentimentLabel }}</span>
+        </div>
+        <div class="news-meta">
+          <span class="news-source">{{ item.source }}</span>
+          <time class="news-time">{{ item.time }}</time>
+        </div>
+      </article>
+      <div *ngIf="news.length === 0" class="no-data">
+        No news available at the moment.
+      </div>
+    </div>
+  </div>
+</div>

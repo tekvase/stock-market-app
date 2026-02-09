@@ -1,0 +1,11 @@
+{
+  "name": "stock-market-fullstack",
+  "version": "1.0.0",
+  "description": "Stock Market App - Angular frontend + Node.js backend",
+  "scripts": {
+    "install:all": "cd backend && npm install && cd ../stock-market-app && npm install",
+    "build:frontend": "cd stock-market-app && npm run build -- --configuration=production",
+    "start": "cd backend && node server.js",
+    "build": "npm run install:all && npm run build:frontend"
+  }
+}
