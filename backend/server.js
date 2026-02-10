@@ -946,10 +946,16 @@ async function startServer() {
 
     // Serve Angular static files in production
     const distPath = path.join(__dirname, '..', 'stock-market-app', 'dist', 'stock-market-app', 'browser');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+    const fs = require('fs');
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('{*path}', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+      console.log('Serving Angular static files from:', distPath);
+    } else {
+      console.log('Angular dist not found at:', distPath, '- skipping static serving');
+    }
 
     server.listen(PORT, () => {
       console.log(`Stock market backend server running on http://localhost:${PORT}`);
