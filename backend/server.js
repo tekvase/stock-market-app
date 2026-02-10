@@ -1,3 +1,7 @@
+// Force IPv4 for DNS resolution (Render doesn't support IPv6 to Supabase)
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+
 require('dotenv').config();
 const express = require('express');
 const http = require('http');

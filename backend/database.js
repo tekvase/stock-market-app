@@ -1,6 +1,4 @@
 const { Pool } = require('pg');
-const dns = require('dns');
-dns.setDefaultResultOrder('ipv4first');
 
 // Create PostgreSQL connection pool
 const pool = new Pool({
