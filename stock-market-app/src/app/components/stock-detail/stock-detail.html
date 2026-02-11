@@ -11,10 +11,15 @@
   </div>
 
   <div *ngIf="!loading && stock" class="detail-content">
+    <!-- Header: Symbol, Name, Price -->
     <div class="stock-header">
       <div class="title-section">
-        <h1 class="stock-symbol">{{ stock.symbol }}</h1>
+        <div class="symbol-row">
+          <h1 class="stock-symbol">{{ stock.symbol }}</h1>
+          <span class="sector-badge" *ngIf="details?.sector">{{ details.sector }}</span>
+        </div>
         <p class="stock-name">{{ stock.name }}</p>
+        <p class="company-country" *ngIf="details?.country">{{ details.country }}</p>
       </div>
       <div class="price-section">
         <div class="current-price">{{ stock.price | currency }}</div>
@@ -25,6 +30,14 @@
       </div>
     </div>
 
+    <!-- Company Description -->
+    <div class="description-card" *ngIf="details?.description">
+      <h2>About</h2>
+      <p>{{ details.description }}</p>
+      <a *ngIf="details?.weburl" [href]="details.weburl" target="_blank" rel="noopener">Visit Website</a>
+    </div>
+
+    <!-- Key Stats Grid -->
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-label">Open</div>
@@ -39,28 +52,80 @@
         <div class="stat-value">{{ stock.low | currency }}</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Volume</div>
-        <div class="stat-value">{{ stock.volume | number }}</div>
+        <div class="stat-label">Prev Close</div>
+        <div class="stat-value">{{ (stock.previousClose || (stock.price - stock.change)) | currency }}</div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card" *ngIf="details?.marketCap">
         <div class="stat-label">Market Cap</div>
-        <div class="stat-value">{{ stock.marketCap }}</div>
+        <div class="stat-value">{{ formatMarketCap(details.marketCap) }}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-label">Previous Close</div>
-        <div class="stat-value">{{ stock.previousClose || (stock.price - stock.change) | currency }}</div>
+      <div class="stat-card" *ngIf="details?.epsTTM !== null">
+        <div class="stat-label">EPS (TTM)</div>
+        <div class="stat-value">{{ details.epsTTM | number:'1.2-2' }}</div>
+      </div>
+      <div class="stat-card" *ngIf="details?.peRatio !== null">
+        <div class="stat-label">P/E Ratio</div>
+        <div class="stat-value">{{ details.peRatio | number:'1.2-2' }}</div>
+      </div>
+      <div class="stat-card" *ngIf="details?.week52High !== null">
+        <div class="stat-label">52W High</div>
+        <div class="stat-value positive">{{ details.week52High | currency }}</div>
+      </div>
+      <div class="stat-card" *ngIf="details?.week52Low !== null">
+        <div class="stat-label">52W Low</div>
+        <div class="stat-value negative">{{ details.week52Low | currency }}</div>
+      </div>
+      <div class="stat-card" *ngIf="details?.nextEarnings">
+        <div class="stat-label">Next Earnings</div>
+        <div class="stat-value">{{ details.nextEarnings }}</div>
+      </div>
+      <div class="stat-card" *ngIf="details?.ipo">
+        <div class="stat-label">IPO Date</div>
+        <div class="stat-value">{{ details.ipo }}</div>
       </div>
     </div>
 
-    <div class="chart-section">
+    <!-- Analyst Recommendations -->
+    <div class="analyst-card" *ngIf="details?.recommendation">
+      <h2>Analyst Recommendations</h2>
+      <div class="analyst-bar-container">
+        <div class="analyst-bar">
+          <div class="bar-strong-buy" [style.flex]="details.recommendation.strongBuy" *ngIf="details.recommendation.strongBuy">
+            {{ details.recommendation.strongBuy }}
+          </div>
+          <div class="bar-buy" [style.flex]="details.recommendation.buy" *ngIf="details.recommendation.buy">
+            {{ details.recommendation.buy }}
+          </div>
+          <div class="bar-hold" [style.flex]="details.recommendation.hold" *ngIf="details.recommendation.hold">
+            {{ details.recommendation.hold }}
+          </div>
+          <div class="bar-sell" [style.flex]="details.recommendation.sell" *ngIf="details.recommendation.sell">
+            {{ details.recommendation.sell }}
+          </div>
+          <div class="bar-strong-sell" [style.flex]="details.recommendation.strongSell" *ngIf="details.recommendation.strongSell">
+            {{ details.recommendation.strongSell }}
+          </div>
+        </div>
+        <div class="analyst-legend">
+          <span class="legend-item"><span class="dot strong-buy"></span> Strong Buy</span>
+          <span class="legend-item"><span class="dot buy"></span> Buy</span>
+          <span class="legend-item"><span class="dot hold"></span> Hold</span>
+          <span class="legend-item"><span class="dot sell"></span> Sell</span>
+          <span class="legend-item"><span class="dot strong-sell"></span> Strong Sell</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Price Chart -->
+    <div class="chart-section" *ngIf="stockHistory.length > 0">
       <h2>Price History (Last 30 Days)</h2>
       <div class="chart-container">
         <div class="chart">
           <div *ngFor="let point of stockHistory; let i = index" class="bar-container">
             <div
               class="bar"
-              [style.height.%]="(point.price / getMaxPrice()) * 100"
-              [title]="point.date + ': ' + (point.price | currency)"
+              [style.height.%]="getBarHeight(point.price)"
+              [title]="point.date + ': $' + point.price.toFixed(2)"
             ></div>
           </div>
         </div>
@@ -71,22 +136,23 @@
       </div>
     </div>
 
-    <div class="history-table">
-      <h2>Recent Price Data</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Price</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let point of stockHistory.slice().reverse().slice(0, 10)">
-            <td>{{ point.date }}</td>
-            <td>{{ point.price | currency }}</td>
-          </tr>
-        </tbody>
-      </table>
+    <!-- Company News -->
+    <div class="news-section">
+      <h2>Latest News</h2>
+      <div *ngIf="loadingNews" class="loading-small">Loading news...</div>
+      <div *ngIf="!loadingNews && companyNews.length === 0" class="no-data">No recent news found for {{ symbol }}.</div>
+      <div class="news-list" *ngIf="!loadingNews && companyNews.length > 0">
+        <a *ngFor="let item of companyNews" [href]="item.url" target="_blank" rel="noopener" class="news-item">
+          <div class="news-content">
+            <div class="news-title">{{ item.title }}</div>
+            <div class="news-meta">
+              <span class="news-source">{{ item.source }}</span>
+              <span class="news-time">{{ item.time }}</span>
+            </div>
+          </div>
+        </a>
+      </div>
     </div>
+
   </div>
 </div>

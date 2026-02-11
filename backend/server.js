@@ -13,7 +13,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { Server: SocketIO } = require('socket.io');
-const { db } = require('./database');
+const { db, pool } = require('./database');
 const { initializeScheduler, refreshAllStocks, refreshEarnings } = require('./scheduler');
 const { FinnhubWebSocketManager } = require('./websocket-manager');
 
@@ -51,11 +51,12 @@ const DEFAULT_SYMBOLS = ['AAPL', 'GOOGL', 'MSFT', 'AMZN', 'TSLA', 'NVDA', 'META'
 
 // Simple cache for API responses
 const cache = {};
-const CACHE_TTL = 60000; // 1 minute cache
+const CACHE_TTL = 3600000; // 1 hour cache
+const QUOTE_CACHE_TTL = 60000; // 1 minute for quotes (need fresher prices)
 
-function getCached(key) {
+function getCached(key, ttl = CACHE_TTL) {
   const entry = cache[key];
-  if (entry && Date.now() - entry.time < CACHE_TTL) {
+  if (entry && Date.now() - entry.time < ttl) {
     return entry.data;
   }
   return null;
@@ -65,11 +66,46 @@ function setCache(key, data) {
   cache[key] = { data, time: Date.now() };
 }
 
-// Helper function to make Finnhub API requests
+// Rate limiter for Finnhub API (free tier: 60 calls/minute)
+const requestQueue = [];
+let activeRequests = 0;
+const MAX_REQUESTS_PER_MINUTE = 55; // stay under 60 limit
+const requestTimestamps = [];
+
+function canMakeRequest() {
+  const now = Date.now();
+  // Remove timestamps older than 1 minute
+  while (requestTimestamps.length > 0 && now - requestTimestamps[0] > 60000) {
+    requestTimestamps.shift();
+  }
+  return requestTimestamps.length < MAX_REQUESTS_PER_MINUTE;
+}
+
+function waitForSlot() {
+  return new Promise((resolve) => {
+    const check = () => {
+      if (canMakeRequest()) {
+        requestTimestamps.push(Date.now());
+        resolve();
+      } else {
+        const waitTime = 60000 - (Date.now() - requestTimestamps[0]) + 100;
+        setTimeout(check, Math.min(waitTime, 2000));
+      }
+    };
+    check();
+  });
+}
+
+// Helper function to make Finnhub API requests with caching and rate limiting
 async function finnhubRequest(endpoint, params = {}) {
   const cacheKey = endpoint + JSON.stringify(params);
-  const cached = getCached(cacheKey);
+  // Use shorter TTL for quotes, longer for everything else
+  const ttl = endpoint === '/quote' ? QUOTE_CACHE_TTL : CACHE_TTL;
+  const cached = getCached(cacheKey, ttl);
   if (cached) return cached;
+
+  // Wait for rate limit slot
+  await waitForSlot();
 
   try {
     const response = await axios.get(`${FINNHUB_BASE_URL}${endpoint}`, {
@@ -81,6 +117,11 @@ async function finnhubRequest(endpoint, params = {}) {
     setCache(cacheKey, response.data);
     return response.data;
   } catch (error) {
+    if (error.response && error.response.status === 429) {
+      console.warn('Finnhub rate limit hit, waiting 10s and retrying...');
+      await new Promise(r => setTimeout(r, 10000));
+      return finnhubRequest(endpoint, params); // retry once
+    }
     console.error('Finnhub API Error:', error.message);
     // Return cached data even if expired, rather than failing
     const stale = cache[cacheKey];
@@ -207,6 +248,75 @@ app.get('/api/stock/:symbol', async (req, res) => {
   } catch (error) {
     console.error('Error fetching stock detail:', error);
     res.status(500).json({ error: 'Failed to fetch stock detail' });
+  }
+});
+
+// Get detailed stock info (company profile, sector, earnings, analyst recommendations)
+app.get('/api/stock/:symbol/details', async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+
+    // Fetch company profile, recommendations, and 52-week candles in parallel
+    const now = Math.floor(Date.now() / 1000);
+    const oneYearAgo = now - (365 * 24 * 60 * 60);
+    const [profile, recommendations, candles, metrics] = await Promise.all([
+      finnhubRequest('/stock/profile2', { symbol }),
+      finnhubRequest('/stock/recommendation', { symbol }).catch(() => []),
+      finnhubRequest('/stock/candle', { symbol, resolution: 'W', from: oneYearAgo, to: now }).catch(() => null),
+      finnhubRequest('/stock/metric', { symbol, metric: 'all' }).catch(() => null)
+    ]);
+
+    // Calculate 52-week high/low from candle data
+    let week52High = null;
+    let week52Low = null;
+    if (candles && candles.s !== 'no_data' && candles.h && candles.l) {
+      week52High = Math.max(...candles.h);
+      week52Low = Math.min(...candles.l);
+    }
+
+    // Get next earnings date from database
+    const todayStr = new Date().toISOString().split('T')[0];
+    let nextEarnings = null;
+    try {
+      const earningsResult = await pool.query(
+        `SELECT "Date" FROM "Earnings" WHERE "Symbol" = $1 AND "Date" >= $2 ORDER BY "Date" ASC LIMIT 1`,
+        [symbol, todayStr]
+      );
+      if (earningsResult.rows.length > 0) {
+        nextEarnings = earningsResult.rows[0].Date;
+      }
+    } catch (e) {
+      // Earnings table may not have data for this symbol
+    }
+
+    // Get latest recommendation (most recent period)
+    const latestRec = recommendations.length > 0 ? recommendations[0] : null;
+
+    res.json({
+      description: profile.description || null,
+      sector: profile.finnhubIndustry || null,
+      country: profile.country || null,
+      marketCap: profile.marketCapitalization || null,
+      logo: profile.logo || null,
+      weburl: profile.weburl || null,
+      ipo: profile.ipo || null,
+      week52High: week52High,
+      week52Low: week52Low,
+      epsTTM: metrics?.metric?.epsTTM || null,
+      peRatio: metrics?.metric?.peAnnual || null,
+      nextEarnings: nextEarnings,
+      recommendation: latestRec ? {
+        buy: latestRec.buy || 0,
+        hold: latestRec.hold || 0,
+        sell: latestRec.sell || 0,
+        strongBuy: latestRec.strongBuy || 0,
+        strongSell: latestRec.strongSell || 0,
+        period: latestRec.period || null
+      } : null
+    });
+  } catch (error) {
+    console.error('Error fetching stock details:', error);
+    res.status(500).json({ error: 'Failed to fetch stock details' });
   }
 });
 
@@ -385,9 +495,9 @@ app.get('/api/news', async (req, res) => {
     });
     const news = response.data;
 
-    // Sort by datetime descending (most recent first) and take top 10
+    // Sort by datetime descending (most recent first) and take top 30
     const sorted = [...news].sort((a, b) => b.datetime - a.datetime);
-    const transformedNews = sorted.slice(0, 10).map(item => {
+    const transformedNews = sorted.slice(0, 30).map(item => {
       const { sentiment, label } = analyzeSentiment(item.headline, item.summary);
       return {
         title: item.headline,
@@ -810,10 +920,20 @@ app.post('/api/trades', authenticateToken, async (req, res) => {
 app.delete('/api/trades/:symbol', authenticateToken, async (req, res) => {
   try {
     const { symbol } = req.params;
-    const deleted = await db.deleteUserStockTrade(req.user.userId, symbol);
 
-    if (!deleted) {
+    // Check if trade has shares — if no shares, hard delete; otherwise soft delete
+    const trade = await db.getUserStockTrade(req.user.userId, symbol);
+    if (!trade) {
       return res.status(404).json({ error: 'Trade not found' });
+    }
+
+    let deleted;
+    if (!trade.shares || trade.shares === 0) {
+      // No shares entered — hard delete from database
+      deleted = await db.hardDeleteUserStockTrade(req.user.userId, symbol);
+    } else {
+      // Has shares — soft delete to preserve P&L data
+      deleted = await db.deleteUserStockTrade(req.user.userId, symbol);
     }
 
     res.json({ message: 'Trade removed successfully', trade: deleted });
@@ -823,18 +943,24 @@ app.delete('/api/trades/:symbol', authenticateToken, async (req, res) => {
   }
 });
 
-// Update a stock trade (buy price)
+// Update a stock trade (buy price, shares, sell price)
 app.patch('/api/trades/:symbol', authenticateToken, async (req, res) => {
   try {
     const { symbol } = req.params;
-    const { buyPrice } = req.body;
+    const { buyPrice, shares, sellPrice } = req.body;
 
-    if (!buyPrice || buyPrice <= 0) {
-      return res.status(400).json({ error: 'Valid buy price is required' });
+    // If buyPrice is provided, update targets too
+    if (buyPrice && buyPrice > 0) {
+      await db.updateUserStockTrade(req.user.userId, symbol, buyPrice);
     }
 
-    const updated = await db.updateUserStockTrade(req.user.userId, symbol, buyPrice);
+    // Update shares and/or sell price if provided
+    if (shares !== undefined || sellPrice !== undefined) {
+      await db.updateTradeFields(req.user.userId, symbol, shares, sellPrice);
+    }
 
+    // Return the updated record
+    const updated = await db.getUserStockTrade(req.user.userId, symbol);
     if (!updated) {
       return res.status(404).json({ error: 'Trade not found' });
     }
@@ -846,27 +972,133 @@ app.patch('/api/trades/:symbol', authenticateToken, async (req, res) => {
   }
 });
 
+// Monthly P&L endpoint
+app.get('/api/trades/monthly-pl', authenticateToken, async (req, res) => {
+  try {
+    const result = await db.getMonthlyPL(req.user.userId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching monthly P&L:', error);
+    res.status(500).json({ error: 'Failed to fetch monthly P&L' });
+  }
+});
+
+// Options chain from Finnhub (direct call, bypasses rate limiter due to large response size)
+app.get('/api/options-chain/:symbol', authenticateToken, async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    console.log(`Fetching options chain for ${symbol}...`);
+    const response = await axios.get(`${FINNHUB_BASE_URL}/stock/option-chain`, {
+      params: { symbol, token: FINNHUB_API_KEY },
+      timeout: 30000
+    });
+    console.log(`Options chain for ${symbol}: ${response.data?.data?.length || 0} expiries`);
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching options chain:', error.message);
+    res.status(500).json({ error: 'Failed to fetch options chain' });
+  }
+});
+
+// User option trades endpoints
+
+// Get user's option trades
+app.get('/api/option-trades', authenticateToken, async (req, res) => {
+  try {
+    const trades = await db.getUserOptionTrades(req.user.userId);
+    res.json(trades);
+  } catch (error) {
+    console.error('Error fetching option trades:', error);
+    res.status(500).json({ error: 'Failed to fetch option trades' });
+  }
+});
+
+// Add an option trade
+app.post('/api/option-trades', authenticateToken, async (req, res) => {
+  try {
+    const { symbol, optionType, strike, expiry, premiumPaid, contracts, side } = req.body;
+
+    if (!symbol || !optionType || !strike || !expiry || !premiumPaid) {
+      return res.status(400).json({ error: 'Symbol, option type, strike, expiry, and premium are required' });
+    }
+
+    if (!['Call', 'Put'].includes(optionType)) {
+      return res.status(400).json({ error: 'Option type must be Call or Put' });
+    }
+
+    if (side && !['Buy', 'Sell'].includes(side)) {
+      return res.status(400).json({ error: 'Side must be Buy or Sell' });
+    }
+
+    const trade = await db.addUserOptionTrade(req.user.userId, {
+      symbol, optionType, strike, expiry, premiumPaid, contracts: contracts || 1, side: side || 'Buy'
+    });
+    res.status(201).json(trade);
+  } catch (error) {
+    console.error('Error adding option trade:', error);
+    res.status(500).json({ error: 'Failed to add option trade' });
+  }
+});
+
+// Delete an option trade (soft delete)
+app.delete('/api/option-trades/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await db.deleteUserOptionTrade(req.user.userId, id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Option trade not found' });
+    }
+    res.json({ message: 'Option trade removed', trade: deleted });
+  } catch (error) {
+    console.error('Error deleting option trade:', error);
+    res.status(500).json({ error: 'Failed to delete option trade' });
+  }
+});
+
+// Update an option trade
+app.patch('/api/option-trades/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { premiumPaid, contracts, strike } = req.body;
+    const updated = await db.updateOptionTradeFields(req.user.userId, id, { premiumPaid, contracts, strike });
+    if (!updated) {
+      return res.status(404).json({ error: 'Option trade not found or no fields to update' });
+    }
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating option trade:', error);
+    res.status(500).json({ error: 'Failed to update option trade' });
+  }
+});
+
+// Metric explanations endpoint
+app.get('/api/metric-explanations', async (req, res) => {
+  try {
+    const explanations = await db.getMetricExplanations();
+    res.json(explanations);
+  } catch (error) {
+    console.error('Error fetching metric explanations:', error);
+    res.status(500).json({ error: 'Failed to fetch metric explanations' });
+  }
+});
+
 // Earnings endpoints
 
-// Get weekly earnings (current week by default)
-app.get('/api/earnings/weekly', async (req, res) => {
+// Get monthly earnings (current month by default)
+app.get('/api/earnings/monthly', async (req, res) => {
   try {
     const today = new Date();
-    // Get Monday of current week
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - today.getDay() + 1);
-    // Get Friday of current week
-    const friday = new Date(monday);
-    friday.setDate(monday.getDate() + 4);
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
 
-    const fromDate = req.query.from || monday.toISOString().split('T')[0];
-    const toDate = req.query.to || friday.toISOString().split('T')[0];
+    const fromDate = req.query.from || firstDay.toISOString().split('T')[0];
+    const toDate = req.query.to || lastDay.toISOString().split('T')[0];
 
-    const earnings = await db.getWeeklyEarnings(fromDate, toDate);
+    const earnings = await db.getEarnings(fromDate, toDate);
     res.json({ fromDate, toDate, earnings });
   } catch (error) {
-    console.error('Error fetching weekly earnings:', error);
-    res.status(500).json({ error: 'Failed to fetch weekly earnings' });
+    console.error('Error fetching monthly earnings:', error);
+    res.status(500).json({ error: 'Failed to fetch monthly earnings' });
   }
 });
 
@@ -893,6 +1125,8 @@ async function startServer() {
     await db.initializeUsersTable();
     await db.initializePasswordResetTable();
     await db.initializeEarningsConstraint();
+    await db.initializeMetricExplanationsTable();
+    await db.initializeOptionTradesTable();
     console.log('Database tables initialized');
 
     // Initialize scheduler

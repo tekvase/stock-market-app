@@ -38,11 +38,81 @@
         <div class="stock-info">
           <div class="stock-symbol">{{ searchResult.symbol }}</div>
           <div class="stock-name">{{ searchResult.name }}</div>
+          <span class="sector-badge" *ngIf="showDetails && searchDetails?.sector">{{ searchDetails.sector }}</span>
           <div class="stock-price">${{ searchResult.price | number:'1.2-2' }}</div>
           <div class="stock-change" [class.positive]="searchResult.change >= 0" [class.negative]="searchResult.change < 0">
             {{ searchResult.change >= 0 ? '+' : '' }}{{ searchResult.change | number:'1.2-2' }} ({{ searchResult.changePercent | number:'1.2-2' }}%)
           </div>
         </div>
+
+        <!-- Company Details (access code 10 or 3 only) -->
+        <div *ngIf="showDetails && loadingDetails" class="details-loading">Loading details...</div>
+        <div *ngIf="showDetails && !loadingDetails && searchDetails" class="stock-details">
+          <p class="company-description" *ngIf="searchDetails.description">{{ searchDetails.description }}</p>
+
+          <div class="details-grid">
+            <div class="detail-item" *ngIf="searchDetails.marketCap">
+              <span class="detail-label">Market Cap</span>
+              <span class="detail-value">{{ formatRevenue(searchDetails.marketCap * 1000000) }}</span>
+            </div>
+            <div class="detail-item" *ngIf="searchDetails.country">
+              <span class="detail-label">Country</span>
+              <span class="detail-value">{{ searchDetails.country }}</span>
+            </div>
+            <div class="detail-item" *ngIf="searchDetails.nextEarnings">
+              <span class="detail-label">Next Earnings</span>
+              <span class="detail-value">{{ searchDetails.nextEarnings | date:'MMM d, yyyy' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">EPS (TTM)</span>
+              <span class="detail-value metric-hover" *ngIf="searchDetails.epsTTM !== null && searchDetails.epsTTM !== undefined">
+                {{ searchDetails.epsTTM | number:'1.2-2' }}
+                <span class="custom-tooltip" *ngIf="getMetricTooltip('EPS', searchDetails.epsTTM)">{{ getMetricTooltip('EPS', searchDetails.epsTTM) }}</span>
+              </span>
+              <span class="detail-value" *ngIf="searchDetails.epsTTM === null || searchDetails.epsTTM === undefined">N/A</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">P/E Ratio</span>
+              <span class="detail-value metric-hover" *ngIf="searchDetails.peRatio !== null && searchDetails.peRatio !== undefined">
+                {{ searchDetails.peRatio | number:'1.2-2' }}
+                <span class="custom-tooltip" *ngIf="getMetricTooltip('PE', searchDetails.peRatio)">{{ getMetricTooltip('PE', searchDetails.peRatio) }}</span>
+              </span>
+              <span class="detail-value" *ngIf="searchDetails.peRatio === null || searchDetails.peRatio === undefined">N/A</span>
+            </div>
+            <div class="detail-item" *ngIf="searchDetails.week52High">
+              <span class="detail-label">52W High</span>
+              <span class="detail-value">${{ searchDetails.week52High | number:'1.2-2' }}</span>
+            </div>
+            <div class="detail-item" *ngIf="searchDetails.week52Low">
+              <span class="detail-label">52W Low</span>
+              <span class="detail-value">${{ searchDetails.week52Low | number:'1.2-2' }}</span>
+            </div>
+            <div class="detail-item" *ngIf="searchDetails.ipo">
+              <span class="detail-label">IPO Date</span>
+              <span class="detail-value">{{ searchDetails.ipo }}</span>
+            </div>
+          </div>
+
+          <!-- Analyst Recommendations -->
+          <div *ngIf="searchDetails.recommendation" class="analyst-section">
+            <div class="analyst-title">Analyst Ratings</div>
+            <div class="analyst-bar">
+              <div class="bar-strong-buy" [style.width.%]="(searchDetails.recommendation.strongBuy / getRecommendationTotal(searchDetails.recommendation)) * 100" title="Strong Buy: {{ searchDetails.recommendation.strongBuy }}"></div>
+              <div class="bar-buy" [style.width.%]="(searchDetails.recommendation.buy / getRecommendationTotal(searchDetails.recommendation)) * 100" title="Buy: {{ searchDetails.recommendation.buy }}"></div>
+              <div class="bar-hold" [style.width.%]="(searchDetails.recommendation.hold / getRecommendationTotal(searchDetails.recommendation)) * 100" title="Hold: {{ searchDetails.recommendation.hold }}"></div>
+              <div class="bar-sell" [style.width.%]="(searchDetails.recommendation.sell / getRecommendationTotal(searchDetails.recommendation)) * 100" title="Sell: {{ searchDetails.recommendation.sell }}"></div>
+              <div class="bar-strong-sell" [style.width.%]="(searchDetails.recommendation.strongSell / getRecommendationTotal(searchDetails.recommendation)) * 100" title="Strong Sell: {{ searchDetails.recommendation.strongSell }}"></div>
+            </div>
+            <div class="analyst-labels">
+              <span class="label-strong-buy">Strong Buy {{ searchDetails.recommendation.strongBuy }}</span>
+              <span class="label-buy">Buy {{ searchDetails.recommendation.buy }}</span>
+              <span class="label-hold">Hold {{ searchDetails.recommendation.hold }}</span>
+              <span class="label-sell">Sell {{ searchDetails.recommendation.sell }}</span>
+              <span class="label-strong-sell">Strong Sell {{ searchDetails.recommendation.strongSell }}</span>
+            </div>
+          </div>
+        </div>
+
         <div class="popup-actions">
           <button class="add-btn" (click)="addStockFromPopup()">ADD TO WATCHLIST</button>
           <button class="cancel-btn" (click)="closeSearchPopup()">CANCEL</button>
@@ -82,69 +152,392 @@
   >
     <div *ngIf="loading" class="loading" role="status" aria-live="polite">Loading stocks...</div>
 
-    <div *ngIf="!loading" class="table-container">
-      <table class="stock-table" aria-label="Stock watch list">
+    <div *ngIf="!loading">
+      <!-- Portfolio Summary Bar -->
+      <div class="portfolio-summary" *ngIf="stocks.length > 0">
+        <div class="summary-item">
+          <span class="summary-label">Total Stocks</span>
+          <span class="summary-value">{{ getPortfolioSummary().total }}</span>
+        </div>
+        <div class="summary-divider"></div>
+        <div class="summary-item">
+          <span class="summary-label">In Profit</span>
+          <span class="summary-value summary-profit">{{ getPortfolioSummary().inProfit }}</span>
+        </div>
+        <div class="summary-divider"></div>
+        <div class="summary-item">
+          <span class="summary-label">In Loss</span>
+          <span class="summary-value summary-loss">{{ getPortfolioSummary().inLoss }}</span>
+        </div>
+        <div class="summary-divider"></div>
+        <div class="summary-item">
+          <span class="summary-label">Avg Return</span>
+          <span class="summary-value" [class.summary-profit]="getPortfolioSummary().avgReturn >= 0" [class.summary-loss]="getPortfolioSummary().avgReturn < 0">
+            {{ getPortfolioSummary().avgReturn >= 0 ? '+' : '' }}{{ getPortfolioSummary().avgReturn | number:'1.2-2' }}%
+          </span>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="stock-table" aria-label="Stock watch list">
+          <thead>
+            <tr>
+              <th scope="col">No</th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('symbol')">Symbol <span class="sort-icon">{{ getSortIcon('symbol') }}</span></th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('price')">Current Price <span class="sort-icon">{{ getSortIcon('price') }}</span></th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('buyPrice')">Buy Price <span class="sort-icon">{{ getSortIcon('buyPrice') }}</span></th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('shares')">Shares <span class="sort-icon">{{ getSortIcon('shares') }}</span></th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('pct')">% <span class="sort-icon">{{ getSortIcon('pct') }}</span></th>
+              <th scope="col">Status</th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('stopLoss')">Stop Loss <span class="sort-icon">{{ getSortIcon('stopLoss') }}</span></th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('target1')">Target 1 (20%) <span class="sort-icon">{{ getSortIcon('target1') }}</span></th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('target2')">Target 2 (25%) <span class="sort-icon">{{ getSortIcon('target2') }}</span></th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('target3')">Target 3 (30%) <span class="sort-icon">{{ getSortIcon('target3') }}</span></th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('sellPrice')">Sell Price <span class="sort-icon">{{ getSortIcon('sellPrice') }}</span></th>
+              <th scope="col" class="sortable-th" (click)="toggleSort('pl')">P&amp;L <span class="sort-icon">{{ getSortIcon('pl') }}</span></th>
+              <th scope="col"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let stock of getFilteredStocks(); let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>
+                <a *ngIf="canViewStockPage" [routerLink]="['/stock', stock.symbol]" class="symbol-link">
+                  {{ stock.symbol }}
+                </a>
+                <span *ngIf="!canViewStockPage">{{ stock.symbol }}</span>
+                <div class="stock-name-small">{{ stock.name }}</div>
+              </td>
+              <td [class.positive]="stock.change >= 0" [class.negative]="stock.change < 0">
+                {{ stock.price | number:'1.2-2' }}
+              </td>
+              <td class="buy-price-cell">
+                <span *ngIf="editingSymbol !== stock.symbol" class="buy-price-display" (dblclick)="startEditBuyPrice(stock)" title="Double-click to edit">
+                  {{ stock.buyPrice | number:'1.2-2' }}
+                </span>
+                <div *ngIf="editingSymbol === stock.symbol" class="buy-price-edit">
+                  <input
+                    type="number"
+                    [(ngModel)]="editBuyPrice"
+                    (keydown)="onEditKeydown($event, stock)"
+                    (blur)="saveBuyPrice(stock)"
+                    class="edit-input"
+                    step="0.01"
+                    min="0.01"
+                    autofocus
+                  />
+                </div>
+              </td>
+              <td class="shares-cell">
+                <input
+                  type="number"
+                  class="shares-input"
+                  [value]="stock.shares || ''"
+                  (input)="onSharesChange(stock, $event)"
+                  placeholder="—"
+                  step="1"
+                  min="0"
+                />
+              </td>
+              <td>
+                <span class="pct-diff" [ngClass]="getPriceDiffPercent(stock) >= 0 ? 'pct-positive' : 'pct-negative'">
+                  {{ getPriceDiffPercent(stock) >= 0 ? '+' : '' }}{{ getPriceDiffPercent(stock) | number:'1.2-2' }}%
+                </span>
+              </td>
+              <td>
+                <span class="stock-status-badge" [ngClass]="getStockStatus(stock).class">
+                  {{ getStockStatus(stock).label }}
+                </span>
+              </td>
+              <td [class.stop-loss]="!isStopLossHit(stock)" [class.stop-loss-hit]="isStopLossHit(stock)">
+                {{ stock.stopLoss | number:'1.2-2' }}
+              </td>
+              <td [class.target]="!isTargetHit(stock, stock.targetPrice1)" [class.target-hit]="isTargetHit(stock, stock.targetPrice1)">
+                {{ stock.targetPrice1 | number:'1.2-2' }}
+              </td>
+              <td [class.target]="!isTargetHit(stock, stock.targetPrice2)" [class.target-hit]="isTargetHit(stock, stock.targetPrice2)">
+                {{ stock.targetPrice2 | number:'1.2-2' }}
+              </td>
+              <td [class.target]="!isTargetHit(stock, stock.targetPrice3)" [class.target-hit]="isTargetHit(stock, stock.targetPrice3)">
+                {{ stock.targetPrice3 | number:'1.2-2' }}
+              </td>
+              <td class="sell-price-cell">
+                <input
+                  type="number"
+                  class="sell-price-input"
+                  [value]="stock.sellPrice || ''"
+                  (input)="onSellPriceChange(stock, $event)"
+                  placeholder="—"
+                  step="0.01"
+                  min="0"
+                />
+              </td>
+              <td>
+                <div *ngIf="stock.sellPrice > 0" class="pl-display">
+                  <span class="pl-amount" [class.positive]="stock.sellPrice >= stock.buyPrice" [class.negative]="stock.sellPrice < stock.buyPrice">
+                    {{ stock.sellPrice >= stock.buyPrice ? '+' : '' }}${{ getTotalPL(stock) | number:'1.2-2' }}
+                  </span>
+                  <div class="pl-pct" [class.positive]="stock.sellPrice >= stock.buyPrice" [class.negative]="stock.sellPrice < stock.buyPrice">
+                    {{ stock.sellPrice >= stock.buyPrice ? '+' : '' }}{{ getPLPercent(stock) | number:'1.2-2' }}%
+                  </div>
+                </div>
+                <span *ngIf="!stock.sellPrice || stock.sellPrice <= 0" class="pl-empty">—</span>
+              </td>
+              <td>
+                <button class="delete-button" (click)="confirmDelete(stock.symbol)" [attr.aria-label]="'Remove ' + stock.symbol + ' from list'">&times;</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div *ngIf="getFilteredStocks().length === 0" class="no-data">
+          No stocks in your list. Search for a symbol above to add.
+        </div>
+      </div>
+
+      <!-- Monthly P&L Summary -->
+      <div class="monthly-pl-section">
+        <div class="monthly-pl-bar" [class.pl-positive]="monthlyPL > 0" [class.pl-negative]="monthlyPL < 0">
+          <span class="monthly-pl-label">{{ monthlyPL >= 0 ? 'Total Profit' : 'Total Loss' }} This Month</span>
+          <span class="monthly-pl-value" *ngIf="!loadingMonthlyPL" [class.profit-color]="monthlyPL >= 0" [class.loss-color]="monthlyPL < 0">
+            {{ monthlyPL >= 0 ? '+' : '-' }}${{ (monthlyPL >= 0 ? monthlyPL : -monthlyPL) | number:'1.2-2' }}
+          </span>
+          <span class="monthly-pl-value" *ngIf="loadingMonthlyPL">Loading...</span>
+        </div>
+        <div class="monthly-pl-details" *ngIf="monthlyPLDetails.length > 0">
+          <div class="pl-detail-item" *ngFor="let item of monthlyPLDetails" [class.positive]="item.pl >= 0" [class.negative]="item.pl < 0">
+            <span class="pl-detail-symbol">{{ item.symbol }}</span>
+            <span class="pl-detail-info">{{ item.shares }} shares @ ${{ item.buyPrice | number:'1.2-2' }} → ${{ item.sellPrice | number:'1.2-2' }}</span>
+            <span class="pl-detail-amount" [class.profit-color]="item.pl >= 0" [class.loss-color]="item.pl < 0">{{ item.pl >= 0 ? '+' : '-' }}${{ (item.pl >= 0 ? item.pl : -item.pl) | number:'1.2-2' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Options Panel -->
+  <div
+    id="panel-options"
+    role="tabpanel"
+    aria-labelledby="tab-options"
+    [attr.tabindex]="0"
+    *ngIf="activeTab === 'options'"
+    class="section tab-panel"
+  >
+    <!-- Options Header with Add Button -->
+    <div class="options-header">
+      <div class="options-summary" *ngIf="userOptions.length > 0">
+        <div class="summary-item">
+          <span class="summary-label">Positions</span>
+          <span class="summary-value">{{ getOptionsSummary().count }}</span>
+        </div>
+        <div class="summary-divider"></div>
+        <div class="summary-item">
+          <span class="summary-label">Total Invested</span>
+          <span class="summary-value">${{ getOptionsSummary().totalInvested | number:'1.2-2' }}</span>
+        </div>
+      </div>
+      <button class="add-option-btn" (click)="openAddOptionForm()">+ Add Option</button>
+    </div>
+
+    <div *ngIf="loadingOptions" class="loading">Loading options...</div>
+
+    <div *ngIf="!loadingOptions && userOptions.length > 0" class="table-container">
+      <table class="stock-table options-table" aria-label="Options trading table">
         <thead>
           <tr>
             <th scope="col">No</th>
-            <th scope="col">Symbol</th>
-            <th scope="col">Current Price</th>
-            <th scope="col">Buy Price</th>
-            <th scope="col">%</th>
-            <th scope="col">Stop Loss</th>
-            <th scope="col">Target 1 (20%)</th>
-            <th scope="col">Target 2 (25%)</th>
-            <th scope="col">Target 3 (30%)</th>
+            <th scope="col" class="sortable-th" (click)="toggleOptionsSort('symbol')">Symbol <span class="sort-icon">{{ getOptionsSortIcon('symbol') }}</span></th>
+            <th scope="col" class="sortable-th" (click)="toggleOptionsSort('side')">Side <span class="sort-icon">{{ getOptionsSortIcon('side') }}</span></th>
+            <th scope="col" class="sortable-th" (click)="toggleOptionsSort('type')">Type <span class="sort-icon">{{ getOptionsSortIcon('type') }}</span></th>
+            <th scope="col" class="sortable-th" (click)="toggleOptionsSort('strike')">Strike <span class="sort-icon">{{ getOptionsSortIcon('strike') }}</span></th>
+            <th scope="col" class="sortable-th" (click)="toggleOptionsSort('expiry')">Expiry <span class="sort-icon">{{ getOptionsSortIcon('expiry') }}</span></th>
+            <th scope="col">DTE</th>
+            <th scope="col" class="sortable-th" (click)="toggleOptionsSort('premium')">Premium <span class="sort-icon">{{ getOptionsSortIcon('premium') }}</span></th>
+            <th scope="col" class="sortable-th" (click)="toggleOptionsSort('contracts')">Contracts <span class="sort-icon">{{ getOptionsSortIcon('contracts') }}</span></th>
+            <th scope="col" class="sortable-th" (click)="toggleOptionsSort('cost')">{{ 'Total' }} <span class="sort-icon">{{ getOptionsSortIcon('cost') }}</span></th>
             <th scope="col"><span class="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let stock of getFilteredStocks(); let i = index">
+          <tr *ngFor="let opt of getSortedOptions(); let i = index">
             <td>{{ i + 1 }}</td>
             <td>
-              <a [routerLink]="['/stock', stock.symbol]" class="symbol-link">
-                {{ stock.symbol }}
-              </a>
-              <div class="stock-name-small">{{ stock.name }}</div>
-            </td>
-            <td [class.positive]="stock.change >= 0" [class.negative]="stock.change < 0">
-              {{ stock.price | number:'1.2-2' }}
-            </td>
-            <td class="buy-price-cell">
-              <span *ngIf="editingSymbol !== stock.symbol" class="buy-price-display" (dblclick)="startEditBuyPrice(stock)" title="Double-click to edit">
-                {{ stock.buyPrice | number:'1.2-2' }}
-              </span>
-              <div *ngIf="editingSymbol === stock.symbol" class="buy-price-edit">
-                <input
-                  type="number"
-                  [(ngModel)]="editBuyPrice"
-                  (keydown)="onEditKeydown($event, stock)"
-                  (blur)="saveBuyPrice(stock)"
-                  class="edit-input"
-                  step="0.01"
-                  min="0.01"
-                  autofocus
-                />
-              </div>
+              <span class="option-symbol">{{ opt.symbol }}</span>
             </td>
             <td>
-              <span class="pct-diff" [ngClass]="getPriceDiffPercent(stock) >= 0 ? 'pct-positive' : 'pct-negative'">
-                {{ getPriceDiffPercent(stock) >= 0 ? '+' : '' }}{{ getPriceDiffPercent(stock) | number:'1.2-2' }}%
+              <span class="side-badge" [class.side-buy]="opt.side === 'Buy'" [class.side-sell]="opt.side === 'Sell'">
+                {{ opt.side }}
               </span>
             </td>
-            <td class="stop-loss">{{ stock.stopLoss | number:'1.2-2' }}</td>
-            <td class="target">{{ stock.targetPrice1 | number:'1.2-2' }}</td>
-            <td class="target">{{ stock.targetPrice2 | number:'1.2-2' }}</td>
-            <td class="target">{{ stock.targetPrice3 | number:'1.2-2' }}</td>
             <td>
-              <button class="delete-button" (click)="deleteStock(stock.symbol)" [attr.aria-label]="'Remove ' + stock.symbol + ' from list'">&times;</button>
+              <span class="option-type-badge" [class.option-call]="opt.type === 'Call'" [class.option-put]="opt.type === 'Put'">
+                {{ opt.type }}
+              </span>
+            </td>
+            <td>${{ opt.strike | number:'1.2-2' }}</td>
+            <td>{{ opt.expiry | date:'MMM d, yyyy' }}</td>
+            <td>
+              <span class="dte-badge" [ngClass]="getExpiryClass(opt.expiry)">
+                {{ getExpiryStatus(opt.expiry) }}
+              </span>
+            </td>
+            <td>${{ opt.premium | number:'1.4-4' }}</td>
+            <td>{{ opt.contracts }}</td>
+            <td>
+              <span [class.positive]="opt.side === 'Sell'" [class.negative]="opt.side === 'Buy'">
+                {{ opt.side === 'Sell' ? '+' : '-' }}${{ getOptionTotalCost(opt) | number:'1.2-2' }}
+              </span>
+            </td>
+            <td>
+              <button class="delete-button" (click)="confirmDeleteOption(opt.id)" [attr.aria-label]="'Remove ' + opt.symbol + ' option'">&times;</button>
             </td>
           </tr>
         </tbody>
       </table>
+    </div>
 
-      <div *ngIf="getFilteredStocks().length === 0" class="no-data">
-        No stocks in your list. Search for a symbol above to add.
+    <div *ngIf="!loadingOptions && userOptions.length === 0" class="no-data">
+      No option trades yet. Click "+ Add Option" to get started.
+    </div>
+
+    <!-- Add Option Popup -->
+    <div *ngIf="showAddOptionForm" class="popup-overlay" (click)="closeAddOptionForm()">
+      <div class="popup-content option-popup" (click)="$event.stopPropagation()">
+        <div class="popup-header">
+          <h3>Add Option Trade</h3>
+          <button class="close-btn" (click)="closeAddOptionForm()">&times;</button>
+        </div>
+        <div class="popup-body">
+          <!-- Search for options chain -->
+          <div class="option-search-row">
+            <input
+              type="text"
+              [(ngModel)]="optionSearchTerm"
+              placeholder="Enter symbol (e.g. AAPL)"
+              class="search-input"
+              (keydown.enter)="searchOptionChain()"
+            />
+            <button class="search-button" (click)="searchOptionChain()" [disabled]="optionSearching || !optionSearchTerm.trim()">
+              {{ optionSearching ? 'Loading...' : 'Load Chain' }}
+            </button>
+          </div>
+
+          <div *ngIf="optionSearchError" class="error-message">{{ optionSearchError }}</div>
+
+          <!-- Expiry selector -->
+          <div *ngIf="optionChainExpiries.length > 0" class="expiry-selector">
+            <label>Expiry Date:</label>
+            <select [(ngModel)]="selectedExpiry" (change)="onExpiryChange()">
+              <option *ngFor="let exp of optionChainExpiries" [value]="exp">{{ exp | date:'MMM d, yyyy' }}</option>
+            </select>
+          </div>
+
+          <!-- Options chain list -->
+          <div *ngIf="optionChainOptions.length > 0" class="chain-list">
+            <div class="chain-scroll">
+              <table class="chain-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Strike</th>
+                    <th>Last</th>
+                    <th>Bid</th>
+                    <th>Ask</th>
+                    <th>Vol</th>
+                    <th>OI</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let chain of optionChainOptions" [class.itm-row]="chain.inTheMoney">
+                    <td>
+                      <span class="option-type-badge" [class.option-call]="chain.type === 'Call'" [class.option-put]="chain.type === 'Put'">
+                        {{ chain.type }}
+                      </span>
+                    </td>
+                    <td class="chain-strike">${{ chain.strike | number:'1.2-2' }}</td>
+                    <td>{{ chain.lastPrice | number:'1.2-2' }}</td>
+                    <td>{{ chain.bid | number:'1.2-2' }}</td>
+                    <td>{{ chain.ask | number:'1.2-2' }}</td>
+                    <td>{{ chain.volume || 0 }}</td>
+                    <td>{{ chain.openInterest || 0 }}</td>
+                    <td>
+                      <button class="chain-select-btn" (click)="selectOptionFromChain(chain)">Select</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Manual entry / selected option form -->
+          <div class="option-form" *ngIf="newOption.symbol">
+            <h4>Trade Details</h4>
+            <!-- Buy/Sell Toggle -->
+            <div class="side-toggle">
+              <button class="side-btn" [class.side-btn-active]="newOption.side === 'Buy'" [class.side-buy-active]="newOption.side === 'Buy'" (click)="newOption.side = 'Buy'">Buy</button>
+              <button class="side-btn" [class.side-btn-active]="newOption.side === 'Sell'" [class.side-sell-active]="newOption.side === 'Sell'" (click)="newOption.side = 'Sell'">Sell</button>
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label>Symbol</label>
+                <input type="text" [(ngModel)]="newOption.symbol" class="form-input" />
+              </div>
+              <div class="form-field">
+                <label>Type</label>
+                <select [(ngModel)]="newOption.optionType" class="form-input">
+                  <option value="Call">Call</option>
+                  <option value="Put">Put</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Strike</label>
+                <input type="number" [(ngModel)]="newOption.strike" class="form-input" step="0.5" />
+              </div>
+              <div class="form-field">
+                <label>Expiry</label>
+                <input type="date" [(ngModel)]="newOption.expiry" class="form-input" />
+              </div>
+              <div class="form-field">
+                <label>{{ newOption.side === 'Sell' ? 'Premium Received' : 'Premium Paid' }}</label>
+                <input type="number" [(ngModel)]="newOption.premiumPaid" class="form-input" step="0.01" />
+              </div>
+              <div class="form-field">
+                <label>Contracts</label>
+                <input type="number" [(ngModel)]="newOption.contracts" class="form-input" min="1" step="1" />
+              </div>
+            </div>
+            <div class="option-form-cost" *ngIf="newOption.premiumPaid > 0 && newOption.contracts > 0" [class.option-form-credit]="newOption.side === 'Sell'">
+              {{ newOption.side === 'Sell' ? 'Total Credit' : 'Total Cost' }}: <strong>${{ (newOption.premiumPaid * newOption.contracts * 100) | number:'1.2-2' }}</strong>
+            </div>
+          </div>
+
+          <!-- Or manual entry trigger -->
+          <div *ngIf="!newOption.symbol && !optionChainData" class="manual-entry-hint">
+            <p>Search a symbol to load the options chain, or</p>
+            <button class="manual-entry-btn" (click)="newOption.symbol = optionSearchTerm.trim().toUpperCase() || 'AAPL'">Enter Manually</button>
+          </div>
+
+          <div class="popup-actions" *ngIf="newOption.symbol">
+            <button class="add-btn" (click)="submitAddOption()" [disabled]="addingOption || !newOption.strike || !newOption.expiry || !newOption.premiumPaid">
+              {{ addingOption ? 'Adding...' : 'ADD OPTION TRADE' }}
+            </button>
+            <button class="cancel-btn" (click)="closeAddOptionForm()">CANCEL</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Option Confirmation -->
+    <div class="confirm-overlay" *ngIf="deleteOptionConfirmId" (click)="cancelDeleteOption()">
+      <div class="confirm-dialog" (click)="$event.stopPropagation()">
+        <h3>Remove Option Trade</h3>
+        <p>Are you sure you want to remove this option trade?</p>
+        <div class="confirm-actions">
+          <button class="confirm-cancel" (click)="cancelDeleteOption()">Cancel</button>
+          <button class="confirm-delete" (click)="deleteOption(deleteOptionConfirmId!)">Remove</button>
+        </div>
       </div>
     </div>
   </div>
@@ -163,7 +556,7 @@
     </div>
   </div>
 
-  <!-- Weekly Earnings Panel -->
+  <!-- Monthly Earnings Panel -->
   <div
     id="panel-earnings"
     role="tabpanel"
@@ -172,45 +565,78 @@
     *ngIf="activeTab === 'earnings'"
     class="section tab-panel"
   >
-    <h2 class="panel-title">Weekly Earnings <span class="week-label" *ngIf="earningsWeekLabel">({{ earningsWeekLabel }})</span></h2>
+    <!-- Earnings Header with Month Nav -->
+    <div class="earnings-header">
+      <button class="month-nav-btn" [class.disabled]="!canGoPrevMonth()" [disabled]="!canGoPrevMonth()" (click)="changeEarningsMonth(-1)">&larr;</button>
+      <h2 class="panel-title">{{ earningsMonthLabel }}</h2>
+      <button class="month-nav-btn" [class.disabled]="!canGoNextMonth()" [disabled]="!canGoNextMonth()" (click)="changeEarningsMonth(1)">&rarr;</button>
+    </div>
+
+    <!-- Earnings Toolbar -->
+    <div class="earnings-toolbar">
+      <input
+        type="text"
+        class="earnings-search"
+        placeholder="Search symbol..."
+        [(ngModel)]="earningsSearchTerm"
+        (input)="onEarningsSearchChange()"
+      />
+      <label class="my-stocks-toggle">
+        <input type="checkbox" [(ngModel)]="earningsMyStocksOnly" (change)="onEarningsFilterChange()" />
+        My Stocks Only
+      </label>
+    </div>
+
     <div *ngIf="loadingEarnings" class="loading" role="status" aria-live="polite">Loading earnings...</div>
-    <div *ngIf="!loadingEarnings" class="table-container">
-      <table class="stock-table earnings-table" *ngIf="weeklyEarnings.length > 0" aria-label="Weekly earnings calendar">
-        <thead>
-          <tr>
-            <th scope="col">Date</th>
-            <th scope="col">Symbol</th>
-            <th scope="col">Time</th>
-            <th scope="col">EPS Estimate</th>
-            <th scope="col">Revenue Estimate</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let earning of weeklyEarnings">
-            <td>{{ earning.Date | date:'MMM d' }}</td>
-            <td class="symbol-link">{{ earning.Symbol }}</td>
-            <td>
-              <span [class.earnings-bmo]="earning.Time === 'bmo'" [class.earnings-amc]="earning.Time === 'amc'">
-                {{ getEarningsTime(earning.Time) }}
-              </span>
-            </td>
-            <td>
-              <span *ngIf="earning.EpsEstimate !== null"
-                [class.eps-negative]="earning.EpsEstimate < 0"
-                [class.eps-low]="earning.EpsEstimate >= 0 && earning.EpsEstimate <= 1"
-                [class.eps-normal]="earning.EpsEstimate > 1 && earning.EpsEstimate <= 5"
-                [class.eps-strong]="earning.EpsEstimate > 5"
-                [title]="getEpsTooltip(earning.EpsEstimate)">
-                {{ earning.EpsEstimate | number:'1.3-3' }}
-              </span>
-              <span *ngIf="earning.EpsEstimate === null">-</span>
-            </td>
-            <td>{{ formatRevenue(earning.RevenueEstimate) }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <div *ngIf="weeklyEarnings.length === 0" class="no-data">
-        No earnings scheduled for this week.
+    <div *ngIf="!loadingEarnings">
+      <!-- Grouped by Date -->
+      <div *ngFor="let group of getEarningsGroupedByDate()" class="earnings-date-group">
+        <div class="date-header" [class.date-today]="isEarningsToday(group.date)">
+          {{ group.date | date:'EEEE, MMM d' }}
+          <span *ngIf="isEarningsToday(group.date)" class="today-badge">Today</span>
+        </div>
+        <table class="stock-table earnings-table" aria-label="Earnings calendar">
+          <thead>
+            <tr>
+              <th scope="col">Symbol</th>
+              <th scope="col">Time</th>
+              <th scope="col">EPS Est.</th>
+              <th scope="col">Revenue Est.</th>
+              <th scope="col"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let earning of group.earnings" [class.watchlist-row]="isInWatchlist(earning.Symbol)">
+              <td>
+                <span class="earnings-symbol" [class.in-watchlist]="isInWatchlist(earning.Symbol)">{{ earning.Symbol }}</span>
+              </td>
+              <td>
+                <span [class.earnings-bmo]="earning.Time === 'bmo'" [class.earnings-amc]="earning.Time === 'amc'">
+                  {{ getEarningsTime(earning.Time) }}
+                </span>
+              </td>
+              <td>
+                <span *ngIf="earning.EpsEstimate !== null"
+                  [class.eps-negative]="earning.EpsEstimate < 0"
+                  [class.eps-low]="earning.EpsEstimate >= 0 && earning.EpsEstimate <= 1"
+                  [class.eps-normal]="earning.EpsEstimate > 1 && earning.EpsEstimate <= 5"
+                  [class.eps-strong]="earning.EpsEstimate > 5"
+                  [title]="getEpsTooltip(earning.EpsEstimate)">
+                  {{ earning.EpsEstimate | number:'1.3-3' }}
+                </span>
+                <span *ngIf="earning.EpsEstimate === null">-</span>
+              </td>
+              <td>{{ formatRevenue(earning.RevenueEstimate) }}</td>
+              <td>
+                <button *ngIf="!isInWatchlist(earning.Symbol)" class="quick-add-btn" (click)="quickAddFromEarnings(earning.Symbol)" title="Add to watchlist">+</button>
+                <span *ngIf="isInWatchlist(earning.Symbol)" class="in-list-icon" title="In your watchlist">&#10003;</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div *ngIf="getEarningsGroupedByDate().length === 0" class="no-data">
+        No earnings found for {{ earningsMonthLabel }}.
       </div>
     </div>
   </div>
@@ -224,25 +650,63 @@
     *ngIf="activeTab === 'news'"
     class="section tab-panel"
   >
+    <!-- News Toolbar -->
+    <div class="news-toolbar">
+      <div class="news-filters">
+        <button class="filter-btn" [class.active]="newsFilter === 'all'" (click)="setNewsFilter('all')">All</button>
+        <button class="filter-btn filter-positive" [class.active]="newsFilter === 'positive'" (click)="setNewsFilter('positive')">Positive</button>
+        <button class="filter-btn filter-negative" [class.active]="newsFilter === 'negative'" (click)="setNewsFilter('negative')">Negative</button>
+        <button class="filter-btn filter-neutral" [class.active]="newsFilter === 'neutral'" (click)="setNewsFilter('neutral')">Neutral</button>
+      </div>
+      <button class="refresh-btn" (click)="refreshNews()" [disabled]="loadingNews" title="Refresh news">
+        &#x21bb;
+      </button>
+    </div>
+
     <div *ngIf="loadingNews" class="loading" role="status" aria-live="polite">Loading news...</div>
     <div *ngIf="!loadingNews" class="news-list">
-      <article *ngFor="let item of news" class="news-item">
-        <div class="news-header-row">
-          <a [href]="item.url" target="_blank" rel="noopener noreferrer" class="news-title-link">{{ item.title }}</a>
-          <span
-            class="sentiment-badge"
-            [class.sentiment-positive]="item.sentiment === 'positive'"
-            [class.sentiment-negative]="item.sentiment === 'negative'"
-            [class.sentiment-neutral]="item.sentiment === 'neutral'"
-          >{{ item.sentimentLabel }}</span>
-        </div>
-        <div class="news-meta">
-          <span class="news-source">{{ item.source }}</span>
-          <time class="news-time">{{ item.time }}</time>
+      <article *ngFor="let item of getFilteredNews()" class="news-item">
+        <div class="news-row">
+          <img *ngIf="item.image" [src]="item.image" alt="" class="news-thumbnail" loading="lazy" (error)="item.image = ''">
+          <div class="news-body">
+            <div class="news-header-row">
+              <a [href]="item.url" target="_blank" rel="noopener noreferrer" class="news-title-link">{{ item.title }}</a>
+              <span
+                class="sentiment-badge"
+                [class.sentiment-positive]="item.sentiment === 'positive'"
+                [class.sentiment-negative]="item.sentiment === 'negative'"
+                [class.sentiment-neutral]="item.sentiment === 'neutral'"
+              >{{ item.sentimentLabel }}</span>
+            </div>
+            <div class="news-tags">
+              <span *ngFor="let sym of isWatchlistRelated(item.title)" class="watchlist-tag">{{ sym }}</span>
+            </div>
+            <div class="news-meta">
+              <span class="news-source">{{ item.source }}</span>
+              <time class="news-time">{{ item.time }}</time>
+              <button *ngIf="item.summary" class="expand-btn" (click)="toggleNewsSummary(item)">
+                {{ item.expanded ? 'Hide' : 'Read more' }}
+              </button>
+            </div>
+            <p *ngIf="item.expanded && item.summary" class="news-summary">{{ item.summary }}</p>
+          </div>
         </div>
       </article>
-      <div *ngIf="news.length === 0" class="no-data">
-        No news available at the moment.
+      <div *ngIf="getFilteredNews().length === 0" class="no-data">
+        No news available for this filter.
+      </div>
+      <button *ngIf="hasMoreNews()" class="load-more-btn" (click)="loadMoreNews()">Load More</button>
+    </div>
+  </div>
+
+  <!-- Delete Confirmation Dialog -->
+  <div class="confirm-overlay" *ngIf="deleteConfirmSymbol" (click)="cancelDelete()">
+    <div class="confirm-dialog" (click)="$event.stopPropagation()">
+      <h3>Remove Stock</h3>
+      <p>Are you sure you want to remove <strong>{{ deleteConfirmSymbol }}</strong> from your watchlist?</p>
+      <div class="confirm-actions">
+        <button class="confirm-cancel" (click)="cancelDelete()">Cancel</button>
+        <button class="confirm-delete" (click)="deleteStock(deleteConfirmSymbol!)">Remove</button>
       </div>
     </div>
   </div>

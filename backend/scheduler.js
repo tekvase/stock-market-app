@@ -122,7 +122,7 @@ async function fetchEarningsCalendar(fromDate, toDate) {
   }
 }
 
-// Refresh earnings data - fetches next 3 months of earnings
+// Refresh earnings data - fetches next 3 months of earnings (month by month to avoid API limits)
 async function refreshEarnings() {
   try {
     console.log('🔄 Starting monthly earnings data refresh...');
@@ -132,22 +132,33 @@ async function refreshEarnings() {
     await db.initializeEarningsConstraint();
 
     const today = new Date();
-    const fromDate = today.toISOString().split('T')[0];
+    let totalInserted = 0;
+    let totalFetched = 0;
 
-    // Fetch 3 months ahead
-    const toDate = new Date(today);
-    toDate.setMonth(toDate.getMonth() + 3);
-    const toDateStr = toDate.toISOString().split('T')[0];
+    // Fetch each month separately to avoid Finnhub's 1500 entry limit per request
+    for (let i = 0; i < 3; i++) {
+      const monthStart = new Date(today.getFullYear(), today.getMonth() + i, 1);
+      const monthEnd = new Date(today.getFullYear(), today.getMonth() + i + 1, 0);
 
-    const earnings = await fetchEarningsCalendar(fromDate, toDateStr);
+      // For the current month, start from today instead of the 1st
+      const fromStr = (i === 0 ? today : monthStart).toISOString().split('T')[0];
+      const toStr = monthEnd.toISOString().split('T')[0];
 
-    if (earnings.length > 0) {
-      const inserted = await db.bulkInsertEarnings(earnings);
-      const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-      console.log(`✨ Earnings refresh completed in ${duration}s - ${inserted}/${earnings.length} entries saved`);
-    } else {
-      console.log('📭 No earnings data to save');
+      console.log(`📅 Fetching month ${i + 1}/3: ${fromStr} to ${toStr}`);
+      const earnings = await fetchEarningsCalendar(fromStr, toStr);
+      totalFetched += earnings.length;
+
+      if (earnings.length > 0) {
+        const inserted = await db.bulkInsertEarnings(earnings);
+        totalInserted += inserted;
+      }
+
+      // Small delay between month requests
+      if (i < 2) await new Promise(resolve => setTimeout(resolve, 500));
     }
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`✨ Earnings refresh completed in ${duration}s - ${totalInserted}/${totalFetched} entries saved`);
   } catch (error) {
     console.error('❌ Error in earnings refresh:', error);
   }

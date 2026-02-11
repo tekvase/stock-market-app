@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { Stock, StockHistory } from '../models/stock.model';
 import { environment } from '../../environments/environment';
@@ -106,16 +106,34 @@ export class StockService {
     );
   }
 
-  getWeeklyEarnings(from?: string, to?: string): Observable<any> {
-    let url = `${this.apiUrl}/earnings/weekly`;
+  getMonthlyEarnings(from?: string, to?: string): Observable<any> {
+    let url = `${this.apiUrl}/earnings/monthly`;
     const params: string[] = [];
     if (from) params.push(`from=${from}`);
     if (to) params.push(`to=${to}`);
     if (params.length) url += `?${params.join('&')}`;
     return this.http.get<any>(url).pipe(
       catchError(error => {
-        console.error('Error fetching weekly earnings:', error);
+        console.error('Error fetching monthly earnings:', error);
         throw error;
+      })
+    );
+  }
+
+  getStockDetails(symbol: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/stock/${symbol}/details`).pipe(
+      catchError(error => {
+        console.error('Error fetching stock details:', error);
+        throw error;
+      })
+    );
+  }
+
+  getMetricExplanations(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/metric-explanations`).pipe(
+      catchError(error => {
+        console.error('Error fetching metric explanations:', error);
+        return of([]);
       })
     );
   }
@@ -125,6 +143,61 @@ export class StockService {
       catchError(error => {
         console.error('Error updating trade:', error);
         throw error;
+      })
+    );
+  }
+
+  updateTradeFields(symbol: string, fields: { shares?: number; sellPrice?: number }): Observable<any> {
+    return this.http.patch<any>(`${this.apiUrl}/trades/${symbol}`, fields, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error('Error updating trade fields:', error);
+        throw error;
+      })
+    );
+  }
+
+  getMonthlyPL(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/trades/monthly-pl`, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error('Error fetching monthly P&L:', error);
+        return of({ totalPL: 0, details: [] });
+      })
+    );
+  }
+
+  // Option trades
+  getUserOptionTrades(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/option-trades`, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error('Error fetching option trades:', error);
+        return of([]);
+      })
+    );
+  }
+
+  addUserOptionTrade(data: { symbol: string; optionType: string; strike: number; expiry: string; premiumPaid: number; contracts: number; side: string }): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/option-trades`, data, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error('Error adding option trade:', error);
+        throw error;
+      })
+    );
+  }
+
+  deleteUserOptionTrade(id: number): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/option-trades/${id}`, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error('Error deleting option trade:', error);
+        throw error;
+      })
+    );
+  }
+
+  getOptionsChain(symbol: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/options-chain/${symbol}`, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error('Error fetching options chain:', error);
+        return of(null);
       })
     );
   }

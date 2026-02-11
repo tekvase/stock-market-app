@@ -27,4 +27,7 @@ export interface NewsItem {
   url?: string;
   sentiment?: string;
   sentimentLabel?: string;
+  image?: string;
+  summary?: string;
+  expanded?: boolean;
 }

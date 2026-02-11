@@ -230,10 +230,52 @@ const db = {
     return result.rows[0];
   },
 
+  async hardDeleteUserStockTrade(userId, symbol) {
+    const query = `
+      DELETE FROM user_stocktrades
+      WHERE user_id = $1 AND symbol = $2 AND status = 'active'
+      RETURNING *
+    `;
+    const result = await pool.query(query, [userId, symbol.toUpperCase()]);
+    return result.rows[0];
+  },
+
   async userStockTradeExists(userId, symbol) {
     const query = "SELECT 1 FROM user_stocktrades WHERE user_id = $1 AND symbol = $2 AND status = 'active'";
     const result = await pool.query(query, [userId, symbol.toUpperCase()]);
     return result.rows.length > 0;
+  },
+
+  async getUserStockTrade(userId, symbol) {
+    const query = "SELECT * FROM user_stocktrades WHERE user_id = $1 AND symbol = $2 AND status = 'active'";
+    const result = await pool.query(query, [userId, symbol.toUpperCase()]);
+    return result.rows[0];
+  },
+
+  async updateTradeFields(userId, symbol, shares, sellPrice) {
+    const setClauses = [];
+    const params = [userId, symbol.toUpperCase()];
+    let paramIdx = 3;
+
+    if (shares !== undefined) {
+      setClauses.push(`shares = $${paramIdx++}`);
+      params.push(shares);
+    }
+    if (sellPrice !== undefined) {
+      setClauses.push(`sell_price = $${paramIdx++}`);
+      params.push(sellPrice);
+    }
+
+    if (setClauses.length === 0) return null;
+
+    const query = `
+      UPDATE user_stocktrades
+      SET ${setClauses.join(', ')}
+      WHERE user_id = $1 AND symbol = $2 AND status = 'active'
+      RETURNING *
+    `;
+    const result = await pool.query(query, params);
+    return result.rows[0];
   },
 
   // Earnings operations
@@ -241,7 +283,7 @@ const db = {
     const query = `
       INSERT INTO "Earnings" ("Symbol", "Date", "EpsActual", "EpsEstimate", "Time", "RevenueActual", "RevenueEstimate", "Year", "UpdatedDate")
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-      ON CONFLICT ON CONSTRAINT earnings_symbol_date_unique
+      ON CONFLICT ("Symbol", "Date")
       DO UPDATE SET
         "EpsActual" = EXCLUDED."EpsActual",
         "EpsEstimate" = EXCLUDED."EpsEstimate",
@@ -266,36 +308,38 @@ const db = {
   },
 
   async bulkInsertEarnings(earnings) {
+    // Deduplicate by symbol+date
+    const seen = new Set();
+    const unique = earnings.filter(e => {
+      const key = e.symbol + '|' + e.date;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     let inserted = 0;
-    for (const earning of earnings) {
+    const batchSize = 100;
+    for (let i = 0; i < unique.length; i += batchSize) {
+      const batch = unique.slice(i, i + batchSize);
+      const values = [];
+      const params = [];
+      let paramIdx = 1;
+      for (const item of batch) {
+        values.push(`($${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, NOW())`);
+        params.push(item.symbol, item.date, item.epsActual, item.epsEstimate, item.time, item.revenueActual, item.revenueEstimate, item.year);
+      }
       try {
-        await this.upsertEarning(earning);
-        inserted++;
+        const query = `INSERT INTO "Earnings" ("Symbol", "Date", "EpsActual", "EpsEstimate", "Time", "RevenueActual", "RevenueEstimate", "Year", "UpdatedDate") VALUES ${values.join(', ')} ON CONFLICT ("Symbol", "Date") DO UPDATE SET "EpsEstimate" = EXCLUDED."EpsEstimate", "RevenueEstimate" = EXCLUDED."RevenueEstimate", "EpsActual" = EXCLUDED."EpsActual", "RevenueActual" = EXCLUDED."RevenueActual", "Time" = EXCLUDED."Time", "UpdatedDate" = NOW()`;
+        await pool.query(query, params);
+        inserted += batch.length;
       } catch (err) {
-        // If unique constraint doesn't exist yet, do simple insert
-        if (err.code === '42704' || err.message.includes('earnings_symbol_date_unique')) {
-          try {
-            const query = `
-              INSERT INTO "Earnings" ("Symbol", "Date", "EpsActual", "EpsEstimate", "Time", "RevenueActual", "RevenueEstimate", "Year", "UpdatedDate")
-              VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
-            `;
-            await pool.query(query, [
-              earning.symbol, earning.date, earning.epsActual, earning.epsEstimate,
-              earning.time, earning.revenueActual, earning.revenueEstimate, earning.year
-            ]);
-            inserted++;
-          } catch (innerErr) {
-            console.error(`Error inserting earning for ${earning.symbol}:`, innerErr.message);
-          }
-        } else {
-          console.error(`Error upserting earning for ${earning.symbol}:`, err.message);
-        }
+        console.error(`Error in batch insert:`, err.message);
       }
     }
     return inserted;
   },
 
-  async getWeeklyEarnings(fromDate, toDate) {
+  async getEarnings(fromDate, toDate) {
     const query = `
       SELECT * FROM "Earnings"
       WHERE "Date" >= $1 AND "Date" <= $2
@@ -368,6 +412,195 @@ const db = {
     } catch (err) {
       console.log('Earnings constraint may already exist:', err.message);
     }
+  },
+
+  async initializeMetricExplanationsTable() {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS metric_explanations (
+        id SERIAL PRIMARY KEY,
+        metric VARCHAR(50) NOT NULL,
+        min_value NUMERIC,
+        max_value NUMERIC,
+        label VARCHAR(100) NOT NULL,
+        description TEXT NOT NULL,
+        color VARCHAR(20),
+        sort_order INTEGER DEFAULT 0
+      )
+    `);
+
+    // Seed data if table is empty
+    const count = await pool.query('SELECT COUNT(*) FROM metric_explanations');
+    if (parseInt(count.rows[0].count) === 0) {
+      const seeds = [
+        // EPS explanations
+        ['EPS', null, 0, 'Negative', 'Company is losing money — not profitable', '#c62828', 1],
+        ['EPS', 0, 1, 'Low', 'Very low profit or near break-even', '#e65100', 2],
+        ['EPS', 1, 5, 'Moderate', 'Modestly profitable — normal for mid-caps', '#2e7d32', 3],
+        ['EPS', 5, 15, 'Strong', 'Healthy, well-established business', '#1565c0', 4],
+        ['EPS', 15, null, 'Very Strong', 'Exceptional earnings — industry leader', '#4a148c', 5],
+        // P/E explanations
+        ['PE', null, 0, 'Negative', 'Company has negative earnings — unprofitable', '#c62828', 1],
+        ['PE', 0, 15, 'Undervalued', 'May be undervalued or slow-growth company', '#2e7d32', 2],
+        ['PE', 15, 25, 'Fair Value', 'Fairly valued for most industries', '#1565c0', 3],
+        ['PE', 25, 50, 'Growth', 'Investors expect high future growth', '#e65100', 4],
+        ['PE', 50, null, 'Expensive', 'Priced for aggressive growth — higher risk', '#c62828', 5]
+      ];
+
+      for (const [metric, min, max, label, desc, color, order] of seeds) {
+        await pool.query(
+          `INSERT INTO metric_explanations (metric, min_value, max_value, label, description, color, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          [metric, min, max, label, desc, color, order]
+        );
+      }
+      console.log('Metric explanations seeded');
+    }
+    console.log('Metric explanations table initialized');
+  },
+
+  async getMetricExplanations() {
+    const result = await pool.query('SELECT * FROM metric_explanations ORDER BY metric, sort_order');
+    return result.rows;
+  },
+
+  // Option trades operations
+  async initializeOptionTradesTable() {
+    const query = `
+      CREATE TABLE IF NOT EXISTS user_optiontrades (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        symbol VARCHAR(10) NOT NULL,
+        option_type VARCHAR(4) NOT NULL CHECK (option_type IN ('Call', 'Put')),
+        strike NUMERIC(12, 2) NOT NULL,
+        expiry DATE NOT NULL,
+        premium_paid NUMERIC(12, 4) NOT NULL,
+        contracts INTEGER NOT NULL DEFAULT 1,
+        status VARCHAR(10) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'closed')),
+        created_at TIMESTAMP DEFAULT NOW(),
+        closed_at TIMESTAMP
+      )
+    `;
+    await pool.query(query);
+    await pool.query('CREATE INDEX IF NOT EXISTS ix_optiontrades_user ON user_optiontrades(user_id, status)');
+    // Add side column if it doesn't exist (for existing tables)
+    try {
+      await pool.query(`ALTER TABLE user_optiontrades ADD COLUMN IF NOT EXISTS side VARCHAR(4) NOT NULL DEFAULT 'Buy' CHECK (side IN ('Buy', 'Sell'))`);
+    } catch (e) {
+      // Column may already exist
+    }
+    console.log('Option trades table initialized');
+  },
+
+  async addUserOptionTrade(userId, { symbol, optionType, strike, expiry, premiumPaid, contracts, side }) {
+    const query = `
+      INSERT INTO user_optiontrades (user_id, symbol, option_type, strike, expiry, premium_paid, contracts, side, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      userId, symbol.toUpperCase(), optionType, strike, expiry, premiumPaid, contracts || 1, side || 'Buy'
+    ]);
+    return result.rows[0];
+  },
+
+  async getUserOptionTrades(userId) {
+    const query = `
+      SELECT * FROM user_optiontrades
+      WHERE user_id = $1 AND status = 'active'
+      ORDER BY expiry ASC
+    `;
+    const result = await pool.query(query, [userId]);
+    return result.rows;
+  },
+
+  async deleteUserOptionTrade(userId, tradeId) {
+    const query = `
+      UPDATE user_optiontrades
+      SET status = 'closed', closed_at = NOW()
+      WHERE user_id = $1 AND id = $2 AND status = 'active'
+      RETURNING *
+    `;
+    const result = await pool.query(query, [userId, tradeId]);
+    return result.rows[0];
+  },
+
+  async updateOptionTradeFields(userId, tradeId, fields) {
+    const setClauses = [];
+    const params = [userId, tradeId];
+    let paramIdx = 3;
+
+    if (fields.premiumPaid !== undefined) {
+      setClauses.push(`premium_paid = $${paramIdx++}`);
+      params.push(fields.premiumPaid);
+    }
+    if (fields.contracts !== undefined) {
+      setClauses.push(`contracts = $${paramIdx++}`);
+      params.push(fields.contracts);
+    }
+    if (fields.strike !== undefined) {
+      setClauses.push(`strike = $${paramIdx++}`);
+      params.push(fields.strike);
+    }
+
+    if (setClauses.length === 0) return null;
+
+    const query = `
+      UPDATE user_optiontrades
+      SET ${setClauses.join(', ')}
+      WHERE user_id = $1 AND id = $2 AND status = 'active'
+      RETURNING *
+    `;
+    const result = await pool.query(query, params);
+    return result.rows[0];
+  },
+
+  async getMonthlyPL(userId) {
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const lastOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+
+    // Get P&L from closed trades this month (deleted from watchlist)
+    const closedQuery = `
+      SELECT symbol, buy_price, sell_price, shares
+      FROM user_stocktrades
+      WHERE user_id = $1
+        AND status = 'closed'
+        AND sell_price IS NOT NULL
+        AND closed_at >= $2
+        AND closed_at <= ($3::date + interval '1 day')
+    `;
+    const closedResult = await pool.query(closedQuery, [userId, firstOfMonth, lastOfMonth]);
+
+    // Get P&L from active trades that have sell_price set
+    const activeQuery = `
+      SELECT symbol, buy_price, sell_price, shares
+      FROM user_stocktrades
+      WHERE user_id = $1
+        AND status = 'active'
+        AND sell_price IS NOT NULL
+        AND sell_price > 0
+    `;
+    const activeResult = await pool.query(activeQuery, [userId]);
+
+    const allTrades = [...closedResult.rows, ...activeResult.rows];
+    let totalPL = 0;
+    const details = [];
+
+    for (const trade of allTrades) {
+      const buyPrice = parseFloat(trade.buy_price) || 0;
+      const sellPrice = parseFloat(trade.sell_price) || 0;
+      const shares = trade.shares || 1;
+      const pl = (sellPrice - buyPrice) * shares;
+      totalPL += pl;
+      details.push({
+        symbol: trade.symbol,
+        buyPrice,
+        sellPrice,
+        shares,
+        pl
+      });
+    }
+
+    return { totalPL, details };
   }
 };
 
