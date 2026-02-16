@@ -210,7 +210,7 @@
                 {{ stock.price | number:'1.2-2' }}
               </td>
               <td class="buy-price-cell">
-                <span *ngIf="editingSymbol !== stock.symbol" class="buy-price-display" (dblclick)="startEditBuyPrice(stock)" title="Double-click to edit">
+                <span *ngIf="editingSymbol !== stock.symbol" class="buy-price-display" (click)="startEditBuyPrice(stock)" title="Click to edit">
                   {{ stock.buyPrice | number:'1.2-2' }}
                 </span>
                 <div *ngIf="editingSymbol === stock.symbol" class="buy-price-edit">
@@ -279,7 +279,19 @@
           <div class="card-details">
             <div class="card-detail">
               <span class="card-label">Buy</span>
-              <span class="card-val">${{ stock.buyPrice | number:'1.2-2' }}</span>
+              <span *ngIf="editingSymbol !== stock.symbol" class="card-val card-buy-editable" (click)="startEditBuyPrice(stock)">${{ stock.buyPrice | number:'1.2-2' }}</span>
+              <div *ngIf="editingSymbol === stock.symbol" class="card-buy-edit">
+                <input
+                  type="number"
+                  [(ngModel)]="editBuyPrice"
+                  (keydown)="onEditKeydown($event, stock)"
+                  (blur)="saveBuyPrice(stock)"
+                  class="card-edit-input"
+                  step="0.01"
+                  min="0.01"
+                  #mobileEditInput
+                >
+              </div>
             </div>
             <div class="card-detail">
               <span class="card-label">Shares</span>

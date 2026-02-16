@@ -8,14 +8,14 @@
 .page-title {
   font-size: 1.6rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text-heading);
   margin: 0 0 24px 0;
 }
 
 .loading {
   text-align: center;
   padding: 60px 20px;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 1rem;
 }
 
@@ -28,11 +28,11 @@
 }
 
 .summary-card {
-  background: #162230;
-  border: 1px solid #2d3f52;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
   border-radius: 10px;
   padding: 18px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 16px var(--shadow);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -41,7 +41,7 @@
 
 .summary-label {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-subtle);
   text-transform: uppercase;
   font-weight: 600;
   letter-spacing: 0.5px;
@@ -50,23 +50,23 @@
 .summary-value {
   font-size: 1.3rem;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .profit {
-  color: #4ade80;
+  color: var(--accent-green);
 }
 
 .loss {
-  color: #f87171;
+  color: var(--accent-red);
 }
 
 /* Table */
 .table-section {
-  background: #162230;
-  border: 1px solid #2d3f52;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
   border-radius: 10px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 16px var(--shadow);
   overflow: hidden;
 }
 
@@ -82,37 +82,37 @@ table {
 }
 
 thead {
-  background: #1a2d3f;
+  background: var(--bg-elevated);
 }
 
 th {
   padding: 12px 14px;
   text-align: left;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.3px;
-  border-bottom: 2px solid #2d3f52;
+  border-bottom: 2px solid var(--border-primary);
   white-space: nowrap;
 }
 
 td {
   padding: 12px 14px;
-  border-bottom: 1px solid #1e2d3d;
-  color: #e2e8f0;
+  border-bottom: 1px solid var(--bg-hover);
+  color: var(--text-primary);
 }
 
 tbody tr:hover {
-  background: rgba(96, 165, 250, 0.05);
+  background: var(--accent-blue-bg-faint);
 }
 
 .row-profit {
-  border-left: 3px solid #4ade80;
+  border-left: 3px solid var(--accent-green);
 }
 
 .row-loss {
-  border-left: 3px solid #f87171;
+  border-left: 3px solid var(--accent-red);
 }
 
 .symbol-cell {
@@ -120,17 +120,17 @@ tbody tr:hover {
 }
 
 .symbol-link {
-  color: #60a5fa;
+  color: var(--accent-blue);
   text-decoration: none;
 }
 
 .symbol-link:hover {
-  color: #93c5fd;
+  color: var(--accent-blue-hover);
   text-decoration: underline;
 }
 
 .date-cell {
-  color: #64748b;
+  color: var(--text-subtle);
   font-size: 0.82rem;
 }
 
@@ -142,12 +142,12 @@ tbody tr:hover {
 
 .empty-state h2 {
   font-size: 1.4rem;
-  color: #f1f5f9;
+  color: var(--text-heading);
   margin: 0 0 10px 0;
 }
 
 .empty-state p {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.95rem;
   margin: 0 0 20px 0;
 }
@@ -155,7 +155,7 @@ tbody tr:hover {
 .back-link {
   display: inline-block;
   padding: 10px 24px;
-  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  background: var(--gradient-btn);
   color: white;
   text-decoration: none;
   border-radius: 8px;

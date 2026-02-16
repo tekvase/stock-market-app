@@ -19,6 +19,9 @@
     <div class="nav-user" [class.open]="menuOpen">
       <span class="user-avatar">{{ userInitials }}</span>
       <span class="user-name">{{ userName }}</span>
+      <button class="theme-toggle" (click)="themeService.toggleTheme()" [attr.aria-label]="themeService.isDark ? 'Switch to light mode' : 'Switch to dark mode'">
+        <span class="theme-icon">{{ themeService.isDark ? '☀️' : '🌙' }}</span>
+      </button>
       <button class="nav-logout-btn" (click)="logout()">Logout</button>
     </div>
   </div>

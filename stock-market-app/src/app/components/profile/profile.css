@@ -8,15 +8,15 @@
 .page-title {
   font-size: 1.6rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text-heading);
   margin: 0 0 24px 0;
 }
 
 .profile-card {
-  background: #162230;
-  border: 1px solid #2d3f52;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 16px var(--shadow);
   overflow: hidden;
 }
 
@@ -25,7 +25,7 @@
   align-items: center;
   gap: 20px;
   padding: 30px;
-  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  background: var(--gradient-btn);
   color: white;
 }
 
@@ -68,7 +68,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 30px;
-  border-bottom: 1px solid #1e2d3d;
+  border-bottom: 1px solid var(--bg-hover);
 }
 
 .detail-row:last-child {
@@ -77,13 +77,13 @@
 
 .detail-label {
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--text-subtle);
   font-weight: 500;
 }
 
 .detail-value {
   font-size: 0.95rem;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-weight: 500;
   text-align: right;
 }
@@ -94,23 +94,23 @@
   border-radius: 20px;
   font-size: 0.8rem;
   font-weight: 600;
-  background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
+  background: var(--accent-muted-bg);
+  color: var(--text-muted);
 }
 
 .access-full {
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  background: var(--accent-green-bg);
+  color: var(--accent-green);
 }
 
 .access-advanced {
-  background: rgba(96, 165, 250, 0.15);
-  color: #60a5fa;
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
 }
 
 .access-standard {
-  background: rgba(251, 146, 60, 0.15);
-  color: #fb923c;
+  background: var(--accent-orange-bg);
+  color: var(--accent-orange);
 }
 
 /* Subscription badges */
@@ -122,19 +122,19 @@
 }
 
 .sub-active {
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
+  background: var(--accent-green-bg);
+  color: var(--accent-green);
 }
 
 .sub-expired {
-  background: rgba(248, 113, 113, 0.15);
-  color: #f87171;
+  background: var(--accent-red-bg);
+  color: var(--accent-red);
 }
 
 .no-user {
   text-align: center;
   padding: 60px 20px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 /* Responsive */

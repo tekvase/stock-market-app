@@ -668,6 +668,10 @@ export class StockList implements OnInit, OnDestroy {
   startEditBuyPrice(stock: any): void {
     this.editingSymbol = stock.symbol;
     this.editBuyPrice = stock.buyPrice;
+    setTimeout(() => {
+      const input = document.querySelector('.edit-input, .card-edit-input') as HTMLInputElement;
+      if (input) input.focus();
+    });
   }
 
   cancelEditBuyPrice(): void {

@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { ThemeService } from '../../services/theme.service';
 
 @Component({
   selector: 'app-navbar',
@@ -12,7 +13,7 @@ import { AuthService } from '../../services/auth.service';
 export class Navbar {
   menuOpen = false;
 
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService, public themeService: ThemeService) {}
 
   get isAuthenticated(): boolean {
     return this.authService.isAuthenticated();
