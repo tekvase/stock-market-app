@@ -210,4 +210,22 @@ export class StockService {
       })
     );
   }
+
+  getEarningsAnalysis(symbol: string): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/earnings/analysis/${symbol}`).pipe(
+      catchError(error => {
+        console.error('Error fetching earnings analysis:', error);
+        throw error;
+      })
+    );
+  }
+
+  getTradeHistory(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/trades/history`, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error('Error fetching trade history:', error);
+        throw error;
+      })
+    );
+  }
 }

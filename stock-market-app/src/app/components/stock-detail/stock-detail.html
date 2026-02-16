@@ -27,6 +27,7 @@
           <span>{{ stock.change >= 0 ? '+' : '' }}{{ stock.change | number:'1.2-2' }}</span>
           <span>({{ stock.change >= 0 ? '+' : '' }}{{ stock.changePercent | number:'1.2-2' }}%)</span>
         </div>
+        <button *ngIf="tradeData" class="close-position-btn" (click)="openCloseDialog()">Close Position</button>
       </div>
     </div>
 
@@ -77,7 +78,7 @@
       </div>
       <div class="stat-card" *ngIf="details?.nextEarnings">
         <div class="stat-label">Next Earnings</div>
-        <div class="stat-value">{{ details.nextEarnings }}</div>
+        <div class="stat-value">{{ formatDate(details.nextEarnings) }}</div>
       </div>
       <div class="stat-card" *ngIf="details?.ipo">
         <div class="stat-label">IPO Date</div>
@@ -122,6 +123,7 @@
       <div class="chart-container">
         <div class="chart">
           <div *ngFor="let point of stockHistory; let i = index" class="bar-container">
+            <span class="bar-price-label">${{ point.price.toFixed(2) }}</span>
             <div
               class="bar"
               [style.height.%]="getBarHeight(point.price)"
@@ -144,7 +146,15 @@
       <div class="news-list" *ngIf="!loadingNews && companyNews.length > 0">
         <a *ngFor="let item of companyNews" [href]="item.url" target="_blank" rel="noopener" class="news-item">
           <div class="news-content">
-            <div class="news-title">{{ item.title }}</div>
+            <div class="news-title-row">
+              <span class="news-title">{{ item.title }}</span>
+              <span
+                class="sentiment-badge"
+                [class.sentiment-positive]="item.sentiment === 'positive'"
+                [class.sentiment-negative]="item.sentiment === 'negative'"
+                [class.sentiment-neutral]="item.sentiment === 'neutral'"
+              >{{ item.sentimentLabel }}</span>
+            </div>
             <div class="news-meta">
               <span class="news-source">{{ item.source }}</span>
               <span class="news-time">{{ item.time }}</span>
@@ -154,5 +164,36 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- Close Position Dialog -->
+  <div class="close-overlay" *ngIf="showCloseDialog" (click)="cancelCloseDialog()">
+    <div class="close-dialog" (click)="$event.stopPropagation()">
+      <h3>Close Position — {{ symbol }}</h3>
+      <div class="close-form">
+        <label class="close-label">Enter your sell price</label>
+        <input
+          type="number"
+          class="close-input"
+          [(ngModel)]="closeSellPrice"
+          placeholder="Enter sell price"
+          step="0.01"
+          min="0"
+          autofocus
+        />
+        <div *ngIf="closeSellPrice > 0 && tradeData" class="close-preview"
+          [class.positive]="closeSellPrice >= tradeData.buyPrice"
+          [class.negative]="closeSellPrice < tradeData.buyPrice">
+          P&amp;L: {{ closeSellPrice >= tradeData.buyPrice ? '+' : '' }}${{ getClosePL() | number:'1.2-2' }}
+          ({{ closeSellPrice >= tradeData.buyPrice ? '+' : '' }}{{ getClosePLPercent() | number:'1.2-2' }}%)
+        </div>
+      </div>
+      <div class="close-actions">
+        <button class="close-cancel-btn" (click)="cancelCloseDialog()">Cancel</button>
+        <button class="close-confirm-btn" (click)="closePosition()" [disabled]="closingPosition">
+          {{ closingPosition ? 'Closing...' : 'Remove' }}
+        </button>
+      </div>
+    </div>
   </div>
 </div>

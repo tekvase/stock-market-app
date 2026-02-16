@@ -534,15 +534,20 @@ app.get('/api/news/:symbol', async (req, res) => {
     });
 
     // Transform and limit to top 10 news items
-    const transformedNews = news.slice(0, 10).map(item => ({
-      title: item.headline,
-      source: item.source,
-      time: getTimeAgo(item.datetime),
-      url: item.url,
-      summary: item.summary,
-      image: item.image,
-      datetime: item.datetime
-    }));
+    const transformedNews = news.slice(0, 10).map(item => {
+      const { sentiment, label } = analyzeSentiment(item.headline, item.summary);
+      return {
+        title: item.headline,
+        source: item.source,
+        time: getTimeAgo(item.datetime),
+        url: item.url,
+        summary: item.summary,
+        image: item.image,
+        datetime: item.datetime,
+        sentiment,
+        sentimentLabel: label
+      };
+    });
 
     res.json(transformedNews);
   } catch (error) {
@@ -983,6 +988,17 @@ app.get('/api/trades/monthly-pl', authenticateToken, async (req, res) => {
   }
 });
 
+// Trade history (closed positions)
+app.get('/api/trades/history', authenticateToken, async (req, res) => {
+  try {
+    const history = await db.getTradeHistory(req.user.userId);
+    res.json(history);
+  } catch (error) {
+    console.error('Error fetching trade history:', error);
+    res.status(500).json({ error: 'Failed to fetch trade history' });
+  }
+});
+
 // Options chain from Finnhub (direct call, bypasses rate limiter due to large response size)
 app.get('/api/options-chain/:symbol', authenticateToken, async (req, res) => {
   try {
@@ -1113,6 +1129,139 @@ app.post('/api/earnings/refresh', authenticateToken, async (req, res) => {
   }
 });
 
+// Earnings analysis for a specific symbol
+app.get('/api/earnings/analysis/:symbol', async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+
+    // Fetch data in parallel: EPS history from DB, recommendations + metrics + profile from Finnhub
+    const [epsHistory, recommendations, metrics, profile] = await Promise.all([
+      db.getEarningsHistory(symbol),
+      finnhubRequest('/stock/recommendation', { symbol }).catch(() => []),
+      finnhubRequest('/stock/metric', { symbol, metric: 'all' }).catch(() => null),
+      finnhubRequest('/stock/profile2', { symbol }).catch(() => ({}))
+    ]);
+
+    // Calculate beat/miss stats
+    let beats = 0;
+    let totalSurprise = 0;
+    const history = epsHistory.map(e => {
+      const actual = parseFloat(e.EpsActual);
+      const estimate = parseFloat(e.EpsEstimate);
+      const surprise = estimate !== 0 ? ((actual - estimate) / Math.abs(estimate)) * 100 : 0;
+      if (actual >= estimate) beats++;
+      totalSurprise += surprise;
+      return {
+        date: e.Date,
+        actual,
+        estimate,
+        surprise: +surprise.toFixed(2),
+        beat: actual >= estimate
+      };
+    });
+
+    const beatRate = history.length > 0 ? Math.round((beats / history.length) * 100) : null;
+    const avgSurprise = history.length > 0 ? +(totalSurprise / history.length).toFixed(2) : null;
+
+    // Latest analyst recommendation
+    const latestRec = recommendations.length > 0 ? recommendations[0] : null;
+    const recommendation = latestRec ? {
+      strongBuy: latestRec.strongBuy || 0,
+      buy: latestRec.buy || 0,
+      hold: latestRec.hold || 0,
+      sell: latestRec.sell || 0,
+      strongSell: latestRec.strongSell || 0
+    } : null;
+
+    const epsTTM = metrics?.metric?.epsTTM || null;
+    const peRatio = metrics?.metric?.peAnnual || null;
+
+    // Get next earnings date and current estimate
+    const todayStr = new Date().toISOString().split('T')[0];
+    let nextEarnings = null;
+    let currentEstimate = null;
+    try {
+      const earningsResult = await pool.query(
+        `SELECT "Date", "EpsEstimate" FROM "Earnings" WHERE "Symbol" = $1 AND "Date" >= $2 ORDER BY "Date" ASC LIMIT 1`,
+        [symbol, todayStr]
+      );
+      if (earningsResult.rows.length > 0) {
+        nextEarnings = earningsResult.rows[0].Date;
+        currentEstimate = earningsResult.rows[0].EpsEstimate ? parseFloat(earningsResult.rows[0].EpsEstimate) : null;
+      }
+    } catch (e) { /* ignore */ }
+
+    // Rule-based outlook scoring
+    let score = 0;
+    const reasons = [];
+
+    if (beatRate !== null) {
+      if (beatRate > 70) { score += 2; reasons.push(`Beat estimates ${beatRate}% of quarters`); }
+      else if (beatRate > 50) { score += 1; reasons.push(`Beat estimates ${beatRate}% of quarters`); }
+      else if (beatRate < 30) { score -= 2; reasons.push(`Missed estimates ${100 - beatRate}% of quarters`); }
+      else { reasons.push(`Beat estimates ${beatRate}% of quarters`); }
+    }
+
+    if (recommendation) {
+      const totalAnalysts = recommendation.strongBuy + recommendation.buy + recommendation.hold + recommendation.sell + recommendation.strongSell;
+      const buyRatio = totalAnalysts > 0 ? (recommendation.strongBuy + recommendation.buy) / totalAnalysts : 0;
+      const sellRatio = totalAnalysts > 0 ? (recommendation.sell + recommendation.strongSell) / totalAnalysts : 0;
+      if (buyRatio > 0.6) { score += 2; reasons.push(`Analysts: ${recommendation.strongBuy + recommendation.buy} Buy vs ${recommendation.sell + recommendation.strongSell} Sell`); }
+      else if (buyRatio > 0.4) { score += 1; reasons.push(`Analysts: ${recommendation.strongBuy + recommendation.buy} Buy vs ${recommendation.sell + recommendation.strongSell} Sell`); }
+      if (sellRatio > 0.4) { score -= 2; reasons.push(`High sell rating from analysts`); }
+    }
+
+    if (epsTTM !== null) {
+      if (epsTTM > 0) { score += 1; reasons.push(`Positive EPS TTM: $${epsTTM.toFixed(2)}`); }
+      else { score -= 1; reasons.push(`Negative EPS TTM: $${epsTTM.toFixed(2)}`); }
+    }
+
+    if (avgSurprise !== null && avgSurprise > 2) { score += 1; reasons.push(`Avg surprise: +${avgSurprise}%`); }
+    if (avgSurprise !== null && avgSurprise < -2) { score -= 1; reasons.push(`Avg surprise: ${avgSurprise}%`); }
+
+    let outlook, outlookLevel;
+    if (history.length === 0 && !recommendation) {
+      outlook = 'Insufficient Data';
+      outlookLevel = 'neutral';
+    } else if (score >= 3) {
+      outlook = 'Likely Positive';
+      outlookLevel = 'positive';
+    } else if (score >= 1) {
+      outlook = 'Leaning Positive';
+      outlookLevel = 'positive';
+    } else if (score === 0) {
+      outlook = 'Neutral';
+      outlookLevel = 'neutral';
+    } else if (score >= -2) {
+      outlook = 'Leaning Negative';
+      outlookLevel = 'negative';
+    } else {
+      outlook = 'Likely Negative';
+      outlookLevel = 'negative';
+    }
+
+    res.json({
+      symbol,
+      name: profile.name || symbol,
+      sector: profile.finnhubIndustry || null,
+      epsHistory: history,
+      beatRate,
+      avgSurprise,
+      recommendation,
+      epsTTM,
+      peRatio,
+      nextEarnings,
+      currentEstimate,
+      outlook,
+      outlookLevel,
+      outlookReason: reasons.join('. ') + (reasons.length > 0 ? '.' : '')
+    });
+  } catch (error) {
+    console.error('Error fetching earnings analysis:', error);
+    res.status(500).json({ error: 'Failed to fetch earnings analysis' });
+  }
+});
+
 // Store scheduler and websocket instances
 let scheduler = null;
 let wsManager = null;
@@ -1188,6 +1337,10 @@ async function startServer() {
     if (fs.existsSync(distPath)) {
       app.use(express.static(distPath));
       app.get('{*path}', (req, res) => {
+        // Don't serve Angular for API routes
+        if (req.originalUrl.startsWith('/api/')) {
+          return res.status(404).json({ error: 'API endpoint not found' });
+        }
         res.sendFile(path.join(distPath, 'index.html'));
       });
       console.log('Serving Angular static files from:', distPath);

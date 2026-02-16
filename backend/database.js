@@ -349,6 +349,18 @@ const db = {
     return result.rows;
   },
 
+  async getEarningsHistory(symbol) {
+    const query = `
+      SELECT "Date", "EpsActual", "EpsEstimate", "RevenueActual", "RevenueEstimate"
+      FROM "Earnings"
+      WHERE "Symbol" = $1 AND "EpsActual" IS NOT NULL
+      ORDER BY "Date" DESC
+      LIMIT 8
+    `;
+    const result = await pool.query(query, [symbol.toUpperCase()]);
+    return result.rows;
+  },
+
   // Password reset operations
   async initializePasswordResetTable() {
     const query = `
@@ -601,6 +613,28 @@ const db = {
     }
 
     return { totalPL, details };
+  },
+
+  async getTradeHistory(userId) {
+    const result = await pool.query(`
+      SELECT symbol, buy_price, sell_price, shares, status, closed_at, created_at
+      FROM user_stocktrades
+      WHERE user_id = $1
+        AND sell_price IS NOT NULL
+        AND sell_price > 0
+        AND (status = 'closed' OR status = 'active')
+      ORDER BY COALESCE(closed_at, created_at) DESC
+    `, [userId]);
+
+    return result.rows.map(row => ({
+      symbol: row.symbol,
+      buyPrice: parseFloat(row.buy_price) || 0,
+      sellPrice: parseFloat(row.sell_price) || 0,
+      shares: row.shares || 1,
+      pl: ((parseFloat(row.sell_price) || 0) - (parseFloat(row.buy_price) || 0)) * (row.shares || 1),
+      closedAt: row.closed_at || row.created_at,
+      createdAt: row.created_at
+    }));
   }
 };
 

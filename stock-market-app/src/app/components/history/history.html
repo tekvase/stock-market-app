@@ -1,0 +1,75 @@
+<div class="history-container">
+  <h1 class="page-title">Trade History</h1>
+
+  <div *ngIf="loading" class="loading">Loading trade history...</div>
+
+  <div *ngIf="!loading">
+    <!-- Summary Stats -->
+    <div class="history-summary" *ngIf="trades.length > 0">
+      <div class="summary-card">
+        <span class="summary-label">Total Trades</span>
+        <span class="summary-value">{{ totalTrades }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Total P&amp;L</span>
+        <span class="summary-value" [class.profit]="totalPL >= 0" [class.loss]="totalPL < 0">
+          {{ totalPL >= 0 ? '+$' : '-$' }}{{ (totalPL >= 0 ? totalPL : -totalPL) | number:'1.2-2' }}
+        </span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Win Rate</span>
+        <span class="summary-value" [class.profit]="winRate >= 50" [class.loss]="winRate < 50">
+          {{ winRate | number:'1.0-0' }}%
+        </span>
+      </div>
+      <div class="summary-card">
+        <span class="summary-label">Wins / Losses</span>
+        <span class="summary-value">
+          <span class="profit">{{ winCount }}</span> / <span class="loss">{{ totalTrades - winCount }}</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Trades Table -->
+    <div class="table-section" *ngIf="trades.length > 0">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Buy Price</th>
+              <th>Sell Price</th>
+              <th>Shares</th>
+              <th>P&amp;L ($)</th>
+              <th>P&amp;L (%)</th>
+              <th>Closed</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let trade of trades" [class.row-profit]="trade.pl >= 0" [class.row-loss]="trade.pl < 0">
+              <td class="symbol-cell">
+                <a [routerLink]="['/stock', trade.symbol]" class="symbol-link">{{ trade.symbol }}</a>
+              </td>
+              <td>{{ trade.buyPrice | currency }}</td>
+              <td>{{ trade.sellPrice | currency }}</td>
+              <td>{{ trade.shares }}</td>
+              <td [class.profit]="trade.pl >= 0" [class.loss]="trade.pl < 0">
+                {{ trade.pl >= 0 ? '+$' : '-$' }}{{ (trade.pl >= 0 ? trade.pl : -trade.pl) | number:'1.2-2' }}
+              </td>
+              <td [class.profit]="trade.pl >= 0" [class.loss]="trade.pl < 0">
+                {{ getPLPercent(trade) >= 0 ? '+' : '' }}{{ getPLPercent(trade) | number:'1.2-2' }}%
+              </td>
+              <td class="date-cell">{{ formatDate(trade.closedAt) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div *ngIf="trades.length === 0" class="empty-state">
+      <h2>No closed trades yet</h2>
+      <p>When you close positions from your watchlist, they'll appear here with full P&amp;L details.</p>
+      <a routerLink="/" class="back-link">Go to Dashboard</a>
+    </div>
+  </div>
+</div>

@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { Stock, StockHistory, NewsItem } from '../../models/stock.model';
@@ -8,7 +9,7 @@ import { LivePriceService } from '../../services/live-price.service';
 
 @Component({
   selector: 'app-stock-detail',
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './stock-detail.html',
   styleUrl: './stock-detail.css',
 })
@@ -22,6 +23,12 @@ export class StockDetail implements OnInit, OnDestroy {
   loadingNews = true;
   symbol = '';
   private livePriceSub?: Subscription;
+
+  // Close position
+  showCloseDialog = false;
+  closeSellPrice: number = 0;
+  closingPosition = false;
+  tradeData: any = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -73,6 +80,22 @@ export class StockDetail implements OnInit, OnDestroy {
         this.loadingDetails = false;
         this.cdr.detectChanges();
       }
+    });
+
+    // Load trade data to check if this stock is in the user's watchlist
+    this.stockService.getUserTrades().subscribe({
+      next: (trades) => {
+        const trade = trades.find((t: any) => t.symbol === this.symbol);
+        if (trade) {
+          this.tradeData = {
+            symbol: trade.symbol,
+            buyPrice: trade.buy_price,
+            shares: trade.shares || 0
+          };
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {}
     });
 
     this.stockService.getCompanyNews(this.symbol).subscribe({
@@ -130,6 +153,12 @@ export class StockDetail implements OnInit, OnDestroy {
     return ((price - min) / (max - min)) * 90 + 10;
   }
 
+  formatDate(dateStr: string): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+
   formatMarketCap(value: number | null): string {
     if (!value) return 'N/A';
     if (value >= 1000) return `$${(value / 1000).toFixed(1)}T`;
@@ -139,5 +168,55 @@ export class StockDetail implements OnInit, OnDestroy {
 
   getRecommendationTotal(rec: any): number {
     return (rec.strongBuy || 0) + (rec.buy || 0) + (rec.hold || 0) + (rec.sell || 0) + (rec.strongSell || 0);
+  }
+
+  // Close position
+  openCloseDialog(): void {
+    this.showCloseDialog = true;
+    this.closeSellPrice = 0;
+  }
+
+  cancelCloseDialog(): void {
+    this.showCloseDialog = false;
+    this.closeSellPrice = 0;
+  }
+
+  getClosePL(): number {
+    if (!this.tradeData || !this.closeSellPrice || !this.tradeData.buyPrice) return 0;
+    return (this.closeSellPrice - this.tradeData.buyPrice) * (this.tradeData.shares || 1);
+  }
+
+  getClosePLPercent(): number {
+    if (!this.tradeData || !this.closeSellPrice || !this.tradeData.buyPrice || this.tradeData.buyPrice === 0) return 0;
+    return ((this.closeSellPrice - this.tradeData.buyPrice) / this.tradeData.buyPrice) * 100;
+  }
+
+  closePosition(): void {
+    if (!this.tradeData) return;
+    this.closingPosition = true;
+
+    const doDelete = () => {
+      this.stockService.deleteUserTrade(this.symbol).subscribe({
+        next: () => {
+          this.closingPosition = false;
+          this.showCloseDialog = false;
+          this.tradeData = null;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.closingPosition = false;
+          this.cdr.detectChanges();
+        }
+      });
+    };
+
+    if (this.closeSellPrice > 0) {
+      this.stockService.updateTradeFields(this.symbol, { sellPrice: this.closeSellPrice }).subscribe({
+        next: () => doDelete(),
+        error: () => doDelete()
+      });
+    } else {
+      doDelete();
+    }
   }
 }

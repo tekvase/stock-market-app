@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { interval, Subscription } from 'rxjs';
 import { Stock, NewsItem } from '../../models/stock.model';
@@ -49,6 +49,7 @@ export class StockList implements OnInit, OnDestroy {
   editingSymbol: string | null = null;
   editBuyPrice: number = 0;
   deleteConfirmSymbol: string | null = null;
+  deleteSellPrice: number = 0;
 
   // Monthly P&L
   monthlyPL: number = 0;
@@ -77,6 +78,12 @@ export class StockList implements OnInit, OnDestroy {
   newOption = { symbol: '', optionType: 'Call' as string, strike: 0, expiry: '', premiumPaid: 0, contracts: 1, side: 'Buy' as string };
   addingOption = false;
   deleteOptionConfirmId: number | null = null;
+
+  // Earnings analysis
+  earningsAnalysis: any = null;
+  loadingAnalysis = false;
+  showAnalysisPopup = false;
+  analysisError = '';
 
   allTabs = [
     { id: 'watchlist', label: 'Stock Watch List', minAccess: 1 },
@@ -115,7 +122,8 @@ export class StockList implements OnInit, OnDestroy {
     private stockService: StockService,
     private cdr: ChangeDetectorRef,
     private authService: AuthService,
-    private livePriceService: LivePriceService
+    private livePriceService: LivePriceService,
+    private router: Router
   ) {
     const user = this.authService.getCurrentUser();
     this.userEmail = user?.email || '';
@@ -326,6 +334,7 @@ export class StockList implements OnInit, OnDestroy {
           case 'target2': valA = a.targetPrice2; valB = b.targetPrice2; break;
           case 'target3': valA = a.targetPrice3; valB = b.targetPrice3; break;
           case 'shares': valA = a.shares || 0; valB = b.shares || 0; break;
+          case 'weight': valA = this.getStockWeight(a); valB = this.getStockWeight(b); break;
           case 'sellPrice': valA = a.sellPrice || 0; valB = b.sellPrice || 0; break;
           case 'pl': valA = this.getPLPercent(a); valB = this.getPLPercent(b); break;
           default: return 0;
@@ -386,24 +395,78 @@ export class StockList implements OnInit, OnDestroy {
   }
 
   // Portfolio summary
-  getPortfolioSummary(): { total: number; inProfit: number; inLoss: number; avgReturn: number } {
+  getPortfolioSummary(): { total: number; inProfit: number; inLoss: number; avgReturn: number; totalProfit: number } {
     const stocks = this.stocks;
-    if (stocks.length === 0) return { total: 0, inProfit: 0, inLoss: 0, avgReturn: 0 };
+    if (stocks.length === 0) return { total: 0, inProfit: 0, inLoss: 0, avgReturn: 0, totalProfit: 0 };
     let inProfit = 0;
     let inLoss = 0;
     let totalPct = 0;
+    let totalProfit = 0;
     for (const s of stocks) {
       const pct = this.getPriceDiffPercent(s);
       totalPct += pct;
       if (pct >= 0) inProfit++;
       else inLoss++;
+      if (s.buyPrice > 0) {
+        totalProfit += this.getCurrentPL(s);
+      }
     }
     return {
       total: stocks.length,
       inProfit,
       inLoss,
-      avgReturn: totalPct / stocks.length
+      avgReturn: totalPct / stocks.length,
+      totalProfit
     };
+  }
+
+  // Portfolio diversity
+  getPortfolioDiversity(): { symbol: string; name: string; invested: number; currentValue: number; pct: number; pl: number; plPct: number }[] {
+    const stocksWithInvestment = this.stocks.filter(s => s.buyPrice > 0 && (s.shares || 0) > 0);
+    const totalInvested = stocksWithInvestment.reduce((sum, s) => sum + (s.buyPrice * (s.shares || 1)), 0);
+    if (totalInvested === 0) return [];
+    return stocksWithInvestment.map(s => {
+      const invested = s.buyPrice * (s.shares || 1);
+      const currentValue = s.price * (s.shares || 1);
+      const pl = currentValue - invested;
+      const plPct = invested > 0 ? (pl / invested) * 100 : 0;
+      return {
+        symbol: s.symbol,
+        name: s.name,
+        invested,
+        currentValue,
+        pct: (invested / totalInvested) * 100,
+        pl,
+        plPct
+      };
+    }).sort((a, b) => b.pct - a.pct);
+  }
+
+  getTotalInvested(): number {
+    return this.stocks.filter(s => s.buyPrice > 0 && (s.shares || 0) > 0)
+      .reduce((sum, s) => sum + (s.buyPrice * (s.shares || 1)), 0);
+  }
+
+  getTotalCurrentValue(): number {
+    return this.stocks.filter(s => s.buyPrice > 0 && (s.shares || 0) > 0)
+      .reduce((sum, s) => sum + (s.price * (s.shares || 1)), 0);
+  }
+
+  getOverallProfit(): number {
+    return this.getTotalCurrentValue() - this.getTotalInvested();
+  }
+
+  getOverallProfitPct(): number {
+    const invested = this.getTotalInvested();
+    if (invested === 0) return 0;
+    return (this.getOverallProfit() / invested) * 100;
+  }
+
+  getStockWeight(stock: any): number {
+    if (!stock.buyPrice || stock.buyPrice <= 0 || !stock.shares || stock.shares <= 0) return 0;
+    const totalInvested = this.getTotalInvested();
+    if (totalInvested === 0) return 0;
+    return ((stock.buyPrice * stock.shares) / totalInvested) * 100;
   }
 
   // Shares
@@ -442,6 +505,17 @@ export class StockList implements OnInit, OnDestroy {
     const perShare = this.getPL(stock);
     const shares = stock.shares || 1;
     return perShare * shares;
+  }
+
+  getCurrentPL(stock: any): number {
+    if (!stock.price || !stock.buyPrice) return 0;
+    const shares = stock.shares || 1;
+    return (stock.price - stock.buyPrice) * shares;
+  }
+
+  getCurrentPLPercent(stock: any): number {
+    if (!stock.price || !stock.buyPrice || stock.buyPrice === 0) return 0;
+    return ((stock.price - stock.buyPrice) / stock.buyPrice) * 100;
   }
 
   onSearchChange(event: Event): void {
@@ -539,19 +613,50 @@ export class StockList implements OnInit, OnDestroy {
 
   confirmDelete(symbol: string): void {
     this.deleteConfirmSymbol = symbol;
+    this.deleteSellPrice = 0;
   }
 
   cancelDelete(): void {
     this.deleteConfirmSymbol = null;
+    this.deleteSellPrice = 0;
+  }
+
+  getDeleteStock(): any {
+    return this.stocks.find(s => s.symbol === this.deleteConfirmSymbol);
+  }
+
+  getDeletePL(): number {
+    const stock = this.getDeleteStock();
+    if (!stock || !this.deleteSellPrice || !stock.buyPrice) return 0;
+    return (this.deleteSellPrice - stock.buyPrice) * (stock.shares || 1);
+  }
+
+  getDeletePLPercent(): number {
+    const stock = this.getDeleteStock();
+    if (!stock || !this.deleteSellPrice || !stock.buyPrice || stock.buyPrice === 0) return 0;
+    return ((this.deleteSellPrice - stock.buyPrice) / stock.buyPrice) * 100;
+  }
+
+  deleteStockWithSellPrice(symbol: string): void {
+    // Save sell price first if provided, then delete
+    if (this.deleteSellPrice > 0) {
+      this.stockService.updateTradeFields(symbol, { sellPrice: this.deleteSellPrice }).subscribe({
+        next: () => this.deleteStock(symbol),
+        error: () => this.deleteStock(symbol) // Still delete even if sell price save fails
+      });
+    } else {
+      this.deleteStock(symbol);
+    }
   }
 
   deleteStock(symbol: string): void {
     this.deleteConfirmSymbol = null;
+    this.deleteSellPrice = 0;
     this.stockService.deleteUserTrade(symbol).subscribe({
       next: () => {
         this.stocks = this.stocks.filter(s => s.symbol !== symbol);
         this.livePriceService.unsubscribe(symbol);
-        this.loadMonthlyPL(); // Refresh monthly P&L after deletion
+        this.loadMonthlyPL();
         this.cdr.detectChanges();
       },
       error: (error) => {
@@ -1059,5 +1164,40 @@ export class StockList implements OnInit, OnDestroy {
       }
     }
     return '';
+  }
+
+  // Earnings analysis
+  openEarningsAnalysis(symbol: string): void {
+    this.showAnalysisPopup = true;
+    this.loadingAnalysis = true;
+    this.earningsAnalysis = null;
+    this.analysisError = '';
+    this.stockService.getEarningsAnalysis(symbol).subscribe({
+      next: (data) => {
+        this.earningsAnalysis = data;
+        this.loadingAnalysis = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loadingAnalysis = false;
+        this.analysisError = 'Failed to load earnings analysis. Please try again.';
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  closeAnalysisPopup(): void {
+    this.showAnalysisPopup = false;
+    this.earningsAnalysis = null;
+  }
+
+  navigateToStock(symbol: string): void {
+    this.router.navigate(['/stock', symbol]);
+  }
+
+  getAnalysisRecommendationTotal(): number {
+    const rec = this.earningsAnalysis?.recommendation;
+    if (!rec) return 0;
+    return (rec.strongBuy || 0) + (rec.buy || 0) + (rec.hold || 0) + (rec.sell || 0) + (rec.strongSell || 0);
   }
 }

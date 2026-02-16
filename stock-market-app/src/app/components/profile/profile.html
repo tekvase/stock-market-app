@@ -1,0 +1,40 @@
+<div class="profile-container">
+  <h1 class="page-title">Profile</h1>
+
+  <div class="profile-card" *ngIf="user">
+    <div class="profile-header">
+      <div class="avatar">{{ initials }}</div>
+      <div class="profile-name-section">
+        <h2 class="profile-name">{{ fullName }}</h2>
+        <p class="profile-email">{{ user.email }}</p>
+      </div>
+    </div>
+
+    <div class="profile-details">
+      <div class="detail-row">
+        <span class="detail-label">Access Level</span>
+        <span class="detail-value">
+          <span class="access-badge" [class.access-full]="user.accessCode === 10" [class.access-advanced]="user.accessCode === 3" [class.access-standard]="user.accessCode === 2">
+            {{ accessLabel }}
+          </span>
+        </span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Subscription</span>
+        <span class="detail-value">
+          <span class="sub-badge" [class.sub-active]="subscriptionStatus === 'Active'" [class.sub-expired]="subscriptionStatus === 'Expired'">
+            {{ subscriptionStatus }}
+          </span>
+        </span>
+      </div>
+      <div class="detail-row" *ngIf="user.subscriptionEnd">
+        <span class="detail-label">Subscription Ends</span>
+        <span class="detail-value">{{ subscriptionEnd }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="!user" class="no-user">
+    <p>Unable to load profile information.</p>
+  </div>
+</div>

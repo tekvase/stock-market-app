@@ -1,6 +1,8 @@
 import { Routes } from '@angular/router';
 import { StockList } from './components/stock-list/stock-list';
 import { StockDetail } from './components/stock-detail/stock-detail';
+import { History } from './components/history/history';
+import { Profile } from './components/profile/profile';
 import { Login } from './components/login/login';
 import { Signup } from './components/signup/signup';
 import { ForgotPassword } from './components/forgot-password/forgot-password';
@@ -20,6 +22,16 @@ export const routes: Routes = [
   {
     path: 'stock/:symbol',
     component: StockDetail,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'history',
+    component: History,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'profile',
+    component: Profile,
     canActivate: [authGuard]
   },
   { path: '**', redirectTo: 'login' }
