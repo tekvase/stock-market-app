@@ -1756,13 +1756,19 @@ tbody tr:hover .sticky-col {
   .card-details {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px 16px;
+    gap: 0 16px;
   }
 
   .card-detail {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-secondary);
+  }
+
+  .card-detail:last-child {
+    border-bottom: none;
   }
 
   .card-label {
@@ -1776,7 +1782,7 @@ tbody tr:hover .sticky-col {
   .card-val {
     font-size: 0.85rem;
     font-weight: 600;
-    color: var(--text-secondary);
+    color: var(--text-primary);
   }
 
   .card-buy-editable {
@@ -1802,9 +1808,7 @@ tbody tr:hover .sticky-col {
 
   .card-pl-detail {
     grid-column: span 2;
-    border-top: 1px solid var(--border-secondary);
-    padding-top: 8px;
-    margin-top: 2px;
+    border-bottom: none;
   }
 
   /* Hide earnings desktop table, show mobile cards */
