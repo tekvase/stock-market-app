@@ -1727,7 +1727,9 @@ tbody tr:hover .sticky-col {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 10px;
+    padding-bottom: 10px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-secondary);
   }
 
   .card-symbol-section {
@@ -1763,19 +1765,14 @@ tbody tr:hover .sticky-col {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border-secondary);
-  }
-
-  .card-detail:last-child {
-    border-bottom: none;
+    padding: 4px 0;
   }
 
   .card-label {
-    font-size: 0.72rem;
-    color: var(--text-subtle);
+    font-size: 0.75rem;
+    color: var(--text-muted);
     text-transform: uppercase;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.3px;
   }
 
