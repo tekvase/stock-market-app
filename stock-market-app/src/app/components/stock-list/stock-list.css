@@ -893,7 +893,7 @@ tbody tr:hover .sticky-col {
 }
 
 .popup-content {
-  background: var(--bg-elevated);
+  background: var(--bg-card);
   border: 1px solid var(--border-primary);
   border-radius: 16px;
   box-shadow: 0 20px 60px var(--shadow-heavy);
@@ -1710,7 +1710,7 @@ tbody tr:hover .sticky-col {
   }
 
   .stock-card {
-    background: var(--bg-elevated);
+    background: var(--bg-card);
     border: 1px solid var(--border-primary);
     border-radius: 12px;
     padding: 14px 16px;
@@ -1819,7 +1819,7 @@ tbody tr:hover .sticky-col {
   }
 
   .earnings-card {
-    background: var(--bg-elevated);
+    background: var(--bg-card);
     border: 1px solid var(--border-primary);
     border-radius: 12px;
     padding: 12px 14px;
