@@ -679,7 +679,10 @@ export class StockList implements OnInit, OnDestroy {
   }
 
   saveBuyPrice(stock: any): void {
-    if (this.editBuyPrice <= 0) return;
+    if (this.editBuyPrice <= 0) {
+      this.editingSymbol = null;
+      return;
+    }
 
     this.stockService.updateUserTrade(stock.symbol, this.editBuyPrice).subscribe({
       next: (updated) => {

@@ -279,8 +279,8 @@
           <div class="card-details">
             <div class="card-detail">
               <span class="card-label">Buy</span>
-              <span *ngIf="editingSymbol !== stock.symbol" class="card-val card-buy-editable" (click)="startEditBuyPrice(stock)">${{ stock.buyPrice | number:'1.2-2' }}</span>
-              <div *ngIf="editingSymbol === stock.symbol" class="card-buy-edit">
+              <span *ngIf="editingSymbol !== stock.symbol" class="card-val card-buy-editable" (click)="startEditBuyPrice(stock); $event.stopPropagation()">${{ stock.buyPrice | number:'1.2-2' }}</span>
+              <div *ngIf="editingSymbol === stock.symbol" class="card-buy-edit" (click)="$event.stopPropagation()">
                 <input
                   type="number"
                   [(ngModel)]="editBuyPrice"
@@ -289,7 +289,6 @@
                   class="card-edit-input"
                   step="0.01"
                   min="0.01"
-                  #mobileEditInput
                 >
               </div>
             </div>
