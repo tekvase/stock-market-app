@@ -164,6 +164,96 @@ async function refreshEarnings() {
   }
 }
 
+// Popular stocks universe for daily picks
+const STOCK_UNIVERSE = [
+  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'BRK.B', 'JPM', 'V',
+  'UNH', 'MA', 'HD', 'PG', 'JNJ', 'ABBV', 'CRM', 'NFLX', 'AMD', 'COST',
+  'PEP', 'ADBE', 'KO', 'MRK', 'LLY', 'AVGO', 'CSCO', 'TMO', 'ACN', 'MCD',
+  'INTC', 'NKE', 'DIS', 'QCOM', 'TXN', 'AMGN', 'PYPL', 'ISRG', 'AMAT', 'BKNG',
+  'BA', 'GS', 'CAT', 'DE', 'SQ', 'SHOP', 'PLTR', 'RIVN', 'SOFI', 'COIN'
+];
+
+// In-memory cache for daily picks
+let dailyPicksCache = { date: null, picks: [] };
+
+// Refresh daily stock picks
+async function refreshDailyPicks() {
+  try {
+    console.log('🎯 Starting daily stock picks refresh...');
+    const startTime = Date.now();
+    const picks = [];
+
+    for (const symbol of STOCK_UNIVERSE) {
+      try {
+        const [recommendations, quote, profile] = await Promise.all([
+          finnhubRequest('/stock/recommendation', { symbol }).catch(() => []),
+          finnhubRequest('/quote', { symbol }).catch(() => null),
+          finnhubRequest('/stock/profile2', { symbol }).catch(() => null)
+        ]);
+
+        const latestRec = recommendations.length > 0 ? recommendations[0] : null;
+        if (!latestRec || !quote || !profile || !profile.name) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          continue;
+        }
+
+        const total = (latestRec.strongBuy || 0) + (latestRec.buy || 0) + (latestRec.hold || 0) + (latestRec.sell || 0) + (latestRec.strongSell || 0);
+        if (total === 0) {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          continue;
+        }
+
+        const buyRatio = ((latestRec.strongBuy || 0) + (latestRec.buy || 0)) / total;
+        let consensus = 'Hold';
+        if (buyRatio > 0.7) consensus = 'Strong Buy';
+        else if (buyRatio > 0.5) consensus = 'Buy';
+        else if (buyRatio <= 0.15) consensus = 'Strong Sell';
+        else if (buyRatio <= 0.3) consensus = 'Sell';
+
+        picks.push({
+          symbol,
+          name: profile.name,
+          sector: profile.finnhubIndustry || '',
+          logo: profile.logo || '',
+          price: quote.c || 0,
+          change: quote.d || 0,
+          changePercent: quote.dp || 0,
+          recommendation: {
+            strongBuy: latestRec.strongBuy || 0,
+            buy: latestRec.buy || 0,
+            hold: latestRec.hold || 0,
+            sell: latestRec.sell || 0,
+            strongSell: latestRec.strongSell || 0
+          },
+          buyRatio: Math.round(buyRatio * 100),
+          consensus,
+          totalAnalysts: total
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 200));
+      } catch (error) {
+        console.error(`  ❌ Error fetching ${symbol}:`, error.message);
+      }
+    }
+
+    // Sort by buyRatio descending, take top 20
+    picks.sort((a, b) => b.buyRatio - a.buyRatio);
+    dailyPicksCache = {
+      date: new Date().toISOString().split('T')[0],
+      picks: picks.slice(0, 20)
+    };
+
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+    console.log(`🎯 Daily picks refresh completed in ${duration}s — ${dailyPicksCache.picks.length} picks cached`);
+  } catch (error) {
+    console.error('❌ Error in daily picks refresh:', error);
+  }
+}
+
+function getDailyPicks() {
+  return dailyPicksCache;
+}
+
 // Initialize scheduler
 function initializeScheduler() {
   console.log('⏰ Initializing stock data scheduler...');
@@ -192,6 +282,20 @@ function initializeScheduler() {
 
   console.log('✅ Monthly earnings refresh scheduled for 1st of each month at 6:00 AM');
 
+  // Schedule daily picks refresh at 5:30 AM ET
+  const dailyPicksJob = cron.schedule('30 5 * * *', async () => {
+    console.log('\n🎯 Daily picks refresh triggered');
+    await refreshDailyPicks();
+  }, {
+    scheduled: true,
+    timezone: "America/New_York"
+  });
+
+  console.log('✅ Daily picks refresh scheduled for 5:30 AM');
+
+  // Fetch picks on startup
+  refreshDailyPicks();
+
   // Optional: Schedule more frequent updates during market hours
   // Runs every 15 minutes from 9:30 AM to 4:00 PM on weekdays
   const marketHoursJob = cron.schedule('*/15 9-16 * * 1-5', async () => {
@@ -207,8 +311,11 @@ function initializeScheduler() {
     dailyJob,
     marketHoursJob,
     monthlyEarningsJob,
+    dailyPicksJob,
     refreshAllStocks,
     refreshEarnings,
+    refreshDailyPicks,
+    getDailyPicks,
 
     // Start market hours updates
     startMarketHoursUpdates: () => {
@@ -232,4 +339,4 @@ function initializeScheduler() {
   };
 }
 
-module.exports = { initializeScheduler, refreshAllStocks, refreshEarnings };
+module.exports = { initializeScheduler, refreshAllStocks, refreshEarnings, refreshDailyPicks, getDailyPicks };

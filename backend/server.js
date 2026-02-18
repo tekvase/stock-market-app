@@ -14,7 +14,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { Server: SocketIO } = require('socket.io');
 const { db, pool } = require('./database');
-const { initializeScheduler, refreshAllStocks, refreshEarnings } = require('./scheduler');
+const { initializeScheduler, refreshAllStocks, refreshEarnings, getDailyPicks } = require('./scheduler');
 const { FinnhubWebSocketManager } = require('./websocket-manager');
 
 // Email transporter
@@ -618,6 +618,16 @@ app.get('/api/scheduler/status', (req, res) => {
     res.json(scheduler.getStatus());
   } else {
     res.status(500).json({ error: 'Scheduler not initialized' });
+  }
+});
+
+// Daily stock picks endpoint
+app.get('/api/recommendations/daily', (req, res) => {
+  const cached = getDailyPicks();
+  if (cached && cached.picks && cached.picks.length > 0) {
+    res.json(cached);
+  } else {
+    res.json({ date: new Date().toISOString().split('T')[0], picks: [] });
   }
 });
 
