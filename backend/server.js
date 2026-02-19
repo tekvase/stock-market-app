@@ -658,6 +658,23 @@ app.get('/api/scheduler/status', (req, res) => {
   }
 });
 
+// AI Daily Picks — external cron trigger (GET so free cron services can hit it)
+app.get('/api/ai-picks/trigger', async (req, res) => {
+  const secret = req.query.key;
+  if (secret !== (process.env.CRON_SECRET || 'stockpicks2026')) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    console.log('🤖 AI Daily Picks triggered by external cron');
+    res.json({ message: 'AI Daily Picks batch started', timestamp: new Date().toISOString() });
+    // Run in background so the response returns immediately
+    refreshAiDailyPicks().catch(err => console.error('Batch error:', err));
+  } catch (error) {
+    console.error('Error triggering AI picks:', error);
+    res.status(500).json({ error: 'Failed to trigger AI picks' });
+  }
+});
+
 // AI Daily Picks endpoint with filtering
 app.get('/api/recommendations/daily', async (req, res) => {
   try {
