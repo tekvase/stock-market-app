@@ -5,6 +5,24 @@ const axios = require('axios');
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
 const FINNHUB_BASE_URL = 'https://finnhub.io/api/v1';
 
+// Track scheduler run history
+const schedulerHistory = {
+  dailyRefresh: { lastRun: null, lastStatus: null, lastDuration: null },
+  monthlyEarnings: { lastRun: null, lastStatus: null, lastDuration: null },
+  aiDailyPicks: { lastRun: null, lastStatus: null, lastDuration: null },
+  quickSeed: { lastRun: null, lastStatus: null, lastDuration: null },
+  logs: [] // keep last 50 log entries
+};
+
+function addSchedulerLog(level, message) {
+  schedulerHistory.logs.unshift({
+    time: new Date().toISOString(),
+    level,
+    message
+  });
+  if (schedulerHistory.logs.length > 50) schedulerHistory.logs.length = 50;
+}
+
 // Helper function to make Finnhub API requests
 async function finnhubRequest(endpoint, params = {}) {
   try {
@@ -715,8 +733,16 @@ function initializeScheduler() {
 
   // Schedule daily refresh at 9:00 AM
   const dailyJob = cron.schedule('0 9 * * *', async () => {
-    console.log('\n🌅 Daily 9 AM scheduled refresh triggered');
-    await refreshAllStocks();
+    const start = Date.now();
+    addSchedulerLog('info', 'Daily 9 AM refresh started');
+    try {
+      await refreshAllStocks();
+      schedulerHistory.dailyRefresh = { lastRun: new Date().toISOString(), lastStatus: 'success', lastDuration: Date.now() - start };
+      addSchedulerLog('success', `Daily refresh completed in ${Math.round((Date.now() - start)/1000)}s`);
+    } catch (e) {
+      schedulerHistory.dailyRefresh = { lastRun: new Date().toISOString(), lastStatus: 'error', lastDuration: Date.now() - start, error: e.message };
+      addSchedulerLog('error', `Daily refresh failed: ${e.message}`);
+    }
   }, {
     scheduled: true,
     timezone: "America/New_York"
@@ -726,8 +752,16 @@ function initializeScheduler() {
 
   // Schedule monthly earnings refresh - 1st of every month at 6:00 AM
   const monthlyEarningsJob = cron.schedule('0 6 1 * *', async () => {
-    console.log('\n📅 Monthly earnings refresh triggered');
-    await refreshEarnings();
+    const start = Date.now();
+    addSchedulerLog('info', 'Monthly earnings refresh started');
+    try {
+      await refreshEarnings();
+      schedulerHistory.monthlyEarnings = { lastRun: new Date().toISOString(), lastStatus: 'success', lastDuration: Date.now() - start };
+      addSchedulerLog('success', `Monthly earnings completed in ${Math.round((Date.now() - start)/1000)}s`);
+    } catch (e) {
+      schedulerHistory.monthlyEarnings = { lastRun: new Date().toISOString(), lastStatus: 'error', lastDuration: Date.now() - start, error: e.message };
+      addSchedulerLog('error', `Monthly earnings failed: ${e.message}`);
+    }
   }, {
     scheduled: true,
     timezone: "America/New_York"
@@ -737,8 +771,16 @@ function initializeScheduler() {
 
   // Schedule AI Daily Picks batch at 1:00 AM ET
   const aiPicksJob = cron.schedule('0 1 * * *', async () => {
-    console.log('\n🤖 AI Daily Picks batch triggered');
-    await refreshAiDailyPicks();
+    const start = Date.now();
+    addSchedulerLog('info', 'AI Daily Picks batch started');
+    try {
+      await refreshAiDailyPicks();
+      schedulerHistory.aiDailyPicks = { lastRun: new Date().toISOString(), lastStatus: 'success', lastDuration: Date.now() - start };
+      addSchedulerLog('success', `AI Daily Picks completed in ${Math.round((Date.now() - start)/1000)}s`);
+    } catch (e) {
+      schedulerHistory.aiDailyPicks = { lastRun: new Date().toISOString(), lastStatus: 'error', lastDuration: Date.now() - start, error: e.message };
+      addSchedulerLog('error', `AI Daily Picks failed: ${e.message}`);
+    }
   }, {
     scheduled: true,
     timezone: "America/New_York"
@@ -779,10 +821,17 @@ function initializeScheduler() {
 
     getStatus: () => {
       return {
-        dailyJobRunning: dailyJob.getStatus() === 'scheduled',
-        marketHoursJobRunning: marketHoursJob.getStatus() === 'scheduled'
+        jobs: {
+          dailyRefresh: { scheduled: dailyJob.getStatus() === 'scheduled', cron: '0 9 * * *', description: 'Daily stock refresh', ...schedulerHistory.dailyRefresh },
+          monthlyEarnings: { scheduled: monthlyEarningsJob.getStatus() === 'scheduled', cron: '0 6 1 * *', description: 'Monthly earnings refresh', ...schedulerHistory.monthlyEarnings },
+          aiDailyPicks: { scheduled: aiPicksJob.getStatus() === 'scheduled', cron: '0 1 * * *', description: 'AI Daily Picks batch', ...schedulerHistory.aiDailyPicks },
+          marketHoursUpdates: { scheduled: marketHoursJob.getStatus() === 'scheduled', cron: '*/15 9-16 * * 1-5', description: 'Market hours live updates' }
+        },
+        logs: schedulerHistory.logs
       };
-    }
+    },
+
+    getHistory: () => schedulerHistory
   };
 }
 

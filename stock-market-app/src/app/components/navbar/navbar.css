@@ -67,6 +67,19 @@
   font-weight: 600;
 }
 
+.nav-links a.dev-link {
+  color: var(--accent-orange, #f97316);
+  font-size: 0.78rem;
+  opacity: 0.7;
+}
+
+.nav-links a.dev-link:hover,
+.nav-links a.dev-link.active-link {
+  opacity: 1;
+  background: rgba(249, 115, 22, 0.1);
+  color: var(--accent-orange, #f97316);
+}
+
 /* User section */
 .nav-user {
   display: flex;

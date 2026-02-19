@@ -1,8 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ThemeService } from '../../services/theme.service';
+import { StockService } from '../../services/stock.service';
 
 @Component({
   selector: 'app-navbar',
@@ -10,10 +11,25 @@ import { ThemeService } from '../../services/theme.service';
   templateUrl: './navbar.html',
   styleUrl: './navbar.css',
 })
-export class Navbar {
+export class Navbar implements OnInit {
   menuOpen = false;
+  isAdminUser = false;
+  isNativePlatform = false;
 
-  constructor(private authService: AuthService, public themeService: ThemeService) {}
+  constructor(private authService: AuthService, public themeService: ThemeService, private stockService: StockService) {}
+
+  ngOnInit(): void {
+    this.isNativePlatform = !!(window as any).Capacitor?.isNativePlatform?.();
+    if (!this.isNativePlatform && this.isAuthenticated) {
+      this.stockService.checkAdmin().subscribe(res => {
+        this.isAdminUser = res.isAdmin;
+      });
+    }
+  }
+
+  get showDevLink(): boolean {
+    return this.isAdminUser && !this.isNativePlatform;
+  }
 
   get isAuthenticated(): boolean {
     return this.authService.isAuthenticated();

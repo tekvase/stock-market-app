@@ -7,6 +7,7 @@ import { Login } from './components/login/login';
 import { Signup } from './components/signup/signup';
 import { ForgotPassword } from './components/forgot-password/forgot-password';
 import { ResetPassword } from './components/reset-password/reset-password';
+import { DevDashboard } from './components/dev-dashboard/dev-dashboard';
 import { authGuard } from './guards/auth.guard';
 
 export const routes: Routes = [
@@ -32,6 +33,11 @@ export const routes: Routes = [
   {
     path: 'profile',
     component: Profile,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'dev',
+    component: DevDashboard,
     canActivate: [authGuard]
   },
   { path: '**', redirectTo: 'login' }

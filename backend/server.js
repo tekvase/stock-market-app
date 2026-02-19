@@ -658,6 +658,89 @@ app.get('/api/scheduler/status', (req, res) => {
   }
 });
 
+// Developer Dashboard — full system status (admin only)
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+
+function isAdmin(req) {
+  return req.user && ADMIN_EMAILS.includes(req.user.email?.toLowerCase());
+}
+
+app.get('/api/dev/status', authenticateToken, async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
+  try {
+    const schedulerStatus = scheduler ? scheduler.getStatus() : { error: 'Not initialized' };
+
+    // DB stats
+    const [usersCount, tradesCount, earningsCount, picksCount, optionsCount] = await Promise.all([
+      pool.query('SELECT COUNT(*) FROM users').then(r => parseInt(r.rows[0].count)),
+      pool.query('SELECT COUNT(*) FROM user_stock_trades').then(r => parseInt(r.rows[0].count)),
+      pool.query('SELECT COUNT(*) FROM earnings').then(r => parseInt(r.rows[0].count)),
+      pool.query("SELECT COUNT(*) FROM ai_daily_picks WHERE pick_date = CURRENT_DATE").then(r => parseInt(r.rows[0].count)),
+      pool.query('SELECT COUNT(*) FROM user_option_trades').then(r => parseInt(r.rows[0].count)).catch(() => 0)
+    ]);
+
+    // Finnhub API check
+    let finnhubStatus = 'unknown';
+    try {
+      const resp = await axios.get(`https://finnhub.io/api/v1/quote?symbol=AAPL&token=${process.env.FINNHUB_API_KEY}`, { timeout: 5000 });
+      finnhubStatus = resp.data && resp.data.c ? 'ok' : 'error';
+    } catch (e) {
+      finnhubStatus = e.response?.status === 429 ? 'rate-limited' : 'error';
+    }
+
+    // Server uptime
+    const uptimeSeconds = process.uptime();
+
+    res.json({
+      server: {
+        uptime: uptimeSeconds,
+        uptimeFormatted: `${Math.floor(uptimeSeconds / 3600)}h ${Math.floor((uptimeSeconds % 3600) / 60)}m`,
+        nodeVersion: process.version,
+        memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
+        environment: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString()
+      },
+      apis: {
+        finnhub: finnhubStatus,
+        database: 'connected',
+        websocket: 'active'
+      },
+      database: {
+        users: usersCount,
+        trades: tradesCount,
+        earnings: earningsCount,
+        aiPicksToday: picksCount,
+        optionTrades: optionsCount
+      },
+      scheduler: schedulerStatus
+    });
+  } catch (error) {
+    console.error('Error fetching dev status:', error);
+    res.status(500).json({ error: 'Failed to fetch status' });
+  }
+});
+
+// Dev trigger endpoints
+app.post('/api/dev/trigger/:job', authenticateToken, async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin access required' });
+  const { job } = req.params;
+  const validJobs = {
+    'ai-picks': { fn: refreshAiDailyPicks, name: 'AI Daily Picks' },
+    'earnings': { fn: refreshEarnings, name: 'Earnings Refresh' },
+    'stocks': { fn: refreshAllStocks, name: 'Stock Refresh' }
+  };
+  const selected = validJobs[job];
+  if (!selected) return res.status(400).json({ error: `Invalid job. Valid: ${Object.keys(validJobs).join(', ')}` });
+
+  res.json({ message: `${selected.name} triggered`, timestamp: new Date().toISOString() });
+  selected.fn().catch(e => console.error(`${selected.name} error:`, e.message));
+});
+
+// Dev: check if user is admin
+app.get('/api/dev/check-admin', authenticateToken, (req, res) => {
+  res.json({ isAdmin: isAdmin(req), email: req.user.email });
+});
+
 // AI Daily Picks — external cron trigger (GET so free cron services can hit it)
 app.get('/api/ai-picks/trigger', async (req, res) => {
   const secret = req.query.key;

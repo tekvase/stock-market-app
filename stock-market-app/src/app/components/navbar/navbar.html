@@ -14,6 +14,7 @@
       <a routerLink="/" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}" (click)="closeMenu()">Dashboard</a>
       <a routerLink="/history" routerLinkActive="active-link" (click)="closeMenu()">History</a>
       <a routerLink="/profile" routerLinkActive="active-link" (click)="closeMenu()">Profile</a>
+      <a *ngIf="showDevLink" routerLink="/dev" routerLinkActive="active-link" (click)="closeMenu()" class="dev-link">Dev</a>
     </div>
 
     <div class="nav-user" [class.open]="menuOpen">

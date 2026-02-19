@@ -291,4 +291,19 @@ export class StockService {
       })
     );
   }
+
+  // Dev dashboard
+  checkAdmin(): Observable<{ isAdmin: boolean; email: string }> {
+    return this.http.get<{ isAdmin: boolean; email: string }>(`${this.apiUrl}/dev/check-admin`, { headers: this.getAuthHeaders() }).pipe(
+      catchError(() => of({ isAdmin: false, email: '' }))
+    );
+  }
+
+  getDevStatus(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/dev/status`, { headers: this.getAuthHeaders() });
+  }
+
+  triggerJob(job: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/dev/trigger/${job}`, {}, { headers: this.getAuthHeaders() });
+  }
 }
