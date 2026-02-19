@@ -1008,6 +1008,33 @@ app.post('/api/trades', authenticateToken, async (req, res) => {
 
     const trade = await db.addUserStockTrade(req.user.userId, symbol, currentPrice);
     res.status(201).json(trade);
+
+    // Fetch earnings for this stock in the background (so smaller stocks aren't missed)
+    const upperSymbol = symbol.toUpperCase();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const threeMonthsOut = new Date();
+    threeMonthsOut.setMonth(threeMonthsOut.getMonth() + 3);
+    const toStr = threeMonthsOut.toISOString().split('T')[0];
+
+    finnhubRequest('/calendar/earnings', { symbol: upperSymbol, from: todayStr, to: toStr })
+      .then(async (data) => {
+        if (data && data.earningsCalendar && data.earningsCalendar.length > 0) {
+          const earnings = data.earningsCalendar.map(item => ({
+            symbol: item.symbol,
+            date: item.date,
+            epsActual: item.epsActual || null,
+            epsEstimate: item.epsEstimate || null,
+            time: item.hour || null,
+            revenueActual: item.revenueActual || null,
+            revenueEstimate: item.revenueEstimate || null,
+            year: item.year || new Date(item.date).getFullYear()
+          }));
+          await db.initializeEarningsConstraint();
+          await db.bulkInsertEarnings(earnings);
+          console.log(`📅 Auto-fetched ${earnings.length} earnings entries for ${upperSymbol}`);
+        }
+      })
+      .catch(err => console.error(`Failed to auto-fetch earnings for ${upperSymbol}:`, err.message));
   } catch (error) {
     console.error('Error adding trade:', error);
     res.status(500).json({ error: 'Failed to add trade' });
