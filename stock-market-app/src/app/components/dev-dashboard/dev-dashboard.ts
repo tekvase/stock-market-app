@@ -37,6 +37,8 @@ export class DevDashboard implements OnInit, OnDestroy {
   }
 
   loadStatus(): void {
+    this.loading = true;
+    this.error = '';
     this.stockService.getDevStatus().subscribe({
       next: (data) => {
         this.status = data;
@@ -44,8 +46,17 @@ export class DevDashboard implements OnInit, OnDestroy {
         this.error = '';
       },
       error: (err) => {
+        console.error('Dev status error:', err);
         this.loading = false;
-        this.error = err.status === 403 ? 'Admin access required' : 'Failed to load status';
+        if (err.status === 403) {
+          this.error = 'Admin access required. Make sure ADMIN_EMAILS is configured on the server.';
+        } else if (err.status === 500) {
+          this.error = 'Server error — check backend logs.';
+        } else if (err.status === 0) {
+          this.error = 'Cannot reach server — CORS or network issue.';
+        } else {
+          this.error = `Failed to load status (${err.status || 'unknown'})`;
+        }
       }
     });
   }
