@@ -1,13 +1,19 @@
 <div class="dashboard-container">
   <!-- Market Indices Banner -->
   <div class="market-indices-bar" *ngIf="marketIndices.length > 0">
-    <div *ngFor="let idx of marketIndices" class="index-item">
-      <span class="index-name">{{ idx.name }}</span>
-      <span class="index-price">{{ idx.price | number:'1.2-2' }}</span>
-      <span class="index-change" [class.positive]="idx.change >= 0" [class.negative]="idx.change < 0">
-        {{ idx.change >= 0 ? '+' : '' }}{{ idx.change | number:'1.2-2' }}
-        ({{ idx.changePercent >= 0 ? '+' : '' }}{{ idx.changePercent | number:'1.2-2' }}%)
-      </span>
+    <div *ngFor="let idx of marketIndices" class="index-item" [class.up]="idx.change >= 0" [class.down]="idx.change < 0">
+      <div class="index-top">
+        <span class="index-name">{{ idx.name }}</span>
+        <span class="index-change-pct" [class.positive]="idx.change >= 0" [class.negative]="idx.change < 0">
+          {{ idx.changePercent >= 0 ? '+' : '' }}{{ idx.changePercent | number:'1.2-2' }}%
+        </span>
+      </div>
+      <div class="index-bottom">
+        <span class="index-price">{{ idx.price | number:'1.2-2' }}</span>
+        <span class="index-change-abs" [class.positive]="idx.change >= 0" [class.negative]="idx.change < 0">
+          {{ idx.change >= 0 ? '+' : '' }}{{ idx.change | number:'1.2-2' }}
+        </span>
+      </div>
     </div>
   </div>
 
