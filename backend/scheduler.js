@@ -822,10 +822,10 @@ function initializeScheduler() {
     getStatus: () => {
       return {
         jobs: {
-          dailyRefresh: { scheduled: dailyJob.getStatus() === 'scheduled', cron: '0 9 * * *', description: 'Daily stock refresh', ...schedulerHistory.dailyRefresh },
-          monthlyEarnings: { scheduled: monthlyEarningsJob.getStatus() === 'scheduled', cron: '0 6 1 * *', description: 'Monthly earnings refresh', ...schedulerHistory.monthlyEarnings },
-          aiDailyPicks: { scheduled: aiPicksJob.getStatus() === 'scheduled', cron: '0 1 * * *', description: 'AI Daily Picks batch', ...schedulerHistory.aiDailyPicks },
-          marketHoursUpdates: { scheduled: marketHoursJob.getStatus() === 'scheduled', cron: '*/15 9-16 * * 1-5', description: 'Market hours live updates' }
+          dailyRefresh: { scheduled: dailyJob.getStatus() !== 'stopped', cron: '0 9 * * *', description: 'Daily stock refresh', ...schedulerHistory.dailyRefresh },
+          monthlyEarnings: { scheduled: monthlyEarningsJob.getStatus() !== 'stopped', cron: '0 6 1 * *', description: 'Monthly earnings refresh', ...schedulerHistory.monthlyEarnings },
+          aiDailyPicks: { scheduled: aiPicksJob.getStatus() !== 'stopped', cron: '0 1 * * *', description: 'AI Daily Picks batch', ...schedulerHistory.aiDailyPicks },
+          marketHoursUpdates: { scheduled: marketHoursJob.getStatus() !== 'stopped', cron: '*/15 9-16 * * 1-5', description: 'Market hours live updates' }
         },
         logs: schedulerHistory.logs
       };
