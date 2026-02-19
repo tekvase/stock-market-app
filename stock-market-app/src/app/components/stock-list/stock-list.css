@@ -2206,7 +2206,7 @@ tbody tr:hover .sticky-col {
     padding-bottom: 1px;
   }
 
-  .card-buy-edit {
+  .card-buy-edit, .card-shares-edit {
     display: flex;
   }
 

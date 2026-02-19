@@ -294,7 +294,18 @@
             </div>
             <div class="card-detail">
               <span class="card-label">Shares</span>
-              <span class="card-val">{{ stock.shares || '—' }}</span>
+              <span *ngIf="editingSharesSymbol !== stock.symbol" class="card-val card-buy-editable" (click)="startEditShares(stock); $event.stopPropagation()">{{ stock.shares || '—' }}</span>
+              <div *ngIf="editingSharesSymbol === stock.symbol" class="card-shares-edit" (click)="$event.stopPropagation()">
+                <input
+                  type="number"
+                  [(ngModel)]="editShares"
+                  (keydown)="onSharesKeydown($event, stock)"
+                  (blur)="saveEditShares(stock)"
+                  class="card-edit-input"
+                  step="1"
+                  min="0"
+                >
+              </div>
             </div>
             <div class="card-detail">
               <span class="card-label">Diversity</span>

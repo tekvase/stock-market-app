@@ -48,6 +48,8 @@ export class StockList implements OnInit, OnDestroy {
 
   editingSymbol: string | null = null;
   editBuyPrice: number = 0;
+  editingSharesSymbol: string | null = null;
+  editShares: number = 0;
   deleteConfirmSymbol: string | null = null;
   deleteSellPrice: number = 0;
 
@@ -825,6 +827,37 @@ export class StockList implements OnInit, OnDestroy {
       this.saveBuyPrice(stock);
     } else if (event.key === 'Escape') {
       this.cancelEditBuyPrice();
+    }
+  }
+
+  startEditShares(stock: any): void {
+    this.editingSharesSymbol = stock.symbol;
+    this.editShares = stock.shares || 0;
+    setTimeout(() => {
+      const input = document.querySelector('.card-shares-edit input') as HTMLInputElement;
+      if (input) input.focus();
+    });
+  }
+
+  saveEditShares(stock: any): void {
+    if (this.editShares < 0) {
+      this.editingSharesSymbol = null;
+      return;
+    }
+    stock.shares = this.editShares;
+    this.editingSharesSymbol = null;
+    this.cdr.detectChanges();
+    this.stockService.updateTradeFields(stock.symbol, { shares: this.editShares }).subscribe({
+      next: () => { if (stock.sellPrice > 0) this.loadMonthlyPL(); },
+      error: (err: any) => console.error('Error saving shares:', err)
+    });
+  }
+
+  onSharesKeydown(event: KeyboardEvent, stock: any): void {
+    if (event.key === 'Enter') {
+      this.saveEditShares(stock);
+    } else if (event.key === 'Escape') {
+      this.editingSharesSymbol = null;
     }
   }
 
