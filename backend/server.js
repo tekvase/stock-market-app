@@ -673,10 +673,10 @@ app.get('/api/dev/status', authenticateToken, async (req, res) => {
     // DB stats
     const [usersCount, tradesCount, earningsCount, picksCount, optionsCount] = await Promise.all([
       pool.query('SELECT COUNT(*) FROM users').then(r => parseInt(r.rows[0].count)),
-      pool.query('SELECT COUNT(*) FROM user_stock_trades').then(r => parseInt(r.rows[0].count)),
-      pool.query('SELECT COUNT(*) FROM earnings').then(r => parseInt(r.rows[0].count)),
+      pool.query('SELECT COUNT(*) FROM user_stocktrades').then(r => parseInt(r.rows[0].count)),
+      pool.query('SELECT COUNT(*) FROM "Earnings"').then(r => parseInt(r.rows[0].count)),
       pool.query("SELECT COUNT(*) FROM ai_daily_picks WHERE pick_date = CURRENT_DATE").then(r => parseInt(r.rows[0].count)),
-      pool.query('SELECT COUNT(*) FROM user_option_trades').then(r => parseInt(r.rows[0].count)).catch(() => 0)
+      pool.query('SELECT COUNT(*) FROM user_optiontrades').then(r => parseInt(r.rows[0].count)).catch(() => 0)
     ]);
 
     // Finnhub API check

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -16,13 +16,14 @@ export class Navbar implements OnInit {
   isAdminUser = false;
   isNativePlatform = false;
 
-  constructor(private authService: AuthService, public themeService: ThemeService, private stockService: StockService) {}
+  constructor(private authService: AuthService, public themeService: ThemeService, private stockService: StockService, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.isNativePlatform = !!(window as any).Capacitor?.isNativePlatform?.();
     if (!this.isNativePlatform && this.isAuthenticated) {
       this.stockService.checkAdmin().subscribe(res => {
         this.isAdminUser = res.isAdmin;
+        this.cdr.detectChanges();
       });
     }
   }
