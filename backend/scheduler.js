@@ -157,6 +157,62 @@ async function refreshEarnings() {
       if (i < 2) await new Promise(resolve => setTimeout(resolve, 500));
     }
 
+    // PHASE 2: Fetch earnings individually for all watchlist stocks
+    // (Finnhub's general calendar caps at ~1500 entries, missing smaller stocks)
+    console.log('📋 Phase 2: Fetching earnings for watchlist stocks individually...');
+    try {
+      const watchlistSymbols = await db.getAllWatchlistSymbols();
+      console.log(`  Found ${watchlistSymbols.length} unique watchlist symbols across all users`);
+
+      if (watchlistSymbols.length > 0) {
+        const overallFrom = today.toISOString().split('T')[0];
+        const overallTo = new Date(today.getFullYear(), today.getMonth() + 3, 0).toISOString().split('T')[0];
+        const existingSymbols = await db.getExistingEarningsSymbols(overallFrom, overallTo);
+
+        const missingSymbols = watchlistSymbols.filter(s => !existingSymbols.has(s));
+        console.log(`  ${existingSymbols.size} already have earnings data, ${missingSymbols.length} need individual lookup`);
+
+        let watchlistInserted = 0;
+        for (const symbol of missingSymbols) {
+          try {
+            const data = await finnhubRequest('/calendar/earnings', {
+              symbol,
+              from: overallFrom,
+              to: overallTo
+            });
+
+            if (data && data.earningsCalendar && data.earningsCalendar.length > 0) {
+              const earnings = data.earningsCalendar.map(item => ({
+                symbol: item.symbol,
+                date: item.date,
+                epsActual: item.epsActual || null,
+                epsEstimate: item.epsEstimate || null,
+                time: item.hour || null,
+                revenueActual: item.revenueActual || null,
+                revenueEstimate: item.revenueEstimate || null,
+                year: item.year || new Date(item.date).getFullYear()
+              }));
+              const inserted = await db.bulkInsertEarnings(earnings);
+              watchlistInserted += inserted;
+              console.log(`  ✅ ${symbol}: found ${earnings.length} earnings entries`);
+            } else {
+              console.log(`  ⏭️  ${symbol}: no upcoming earnings`);
+            }
+
+            // Respect rate limits - small delay between requests
+            await new Promise(resolve => setTimeout(resolve, 1100));
+          } catch (err) {
+            console.error(`  ❌ ${symbol}: ${err.message}`);
+            await new Promise(resolve => setTimeout(resolve, 1100));
+          }
+        }
+        totalInserted += watchlistInserted;
+        console.log(`  Phase 2 complete: ${watchlistInserted} watchlist earnings entries added`);
+      }
+    } catch (err) {
+      console.error('Phase 2 error:', err.message);
+    }
+
     const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     console.log(`✨ Earnings refresh completed in ${duration}s - ${totalInserted}/${totalFetched} entries saved`);
   } catch (error) {

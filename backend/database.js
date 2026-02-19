@@ -797,6 +797,23 @@ const db = {
     return parseInt(result.rows[0].count);
   },
 
+  // Get all unique symbols from all users' active watchlists
+  async getAllWatchlistSymbols() {
+    const result = await pool.query(
+      "SELECT DISTINCT symbol FROM user_stocktrades WHERE status = 'active'"
+    );
+    return result.rows.map(r => r.symbol);
+  },
+
+  // Check which symbols already have earnings in a date range
+  async getExistingEarningsSymbols(fromDate, toDate) {
+    const result = await pool.query(
+      'SELECT DISTINCT "Symbol" FROM "Earnings" WHERE "Date" >= $1 AND "Date" <= $2',
+      [fromDate, toDate]
+    );
+    return new Set(result.rows.map(r => r.Symbol));
+  },
+
   async cleanupOldAiPicks(daysToKeep = 7) {
     const result = await pool.query(
       'DELETE FROM ai_daily_picks WHERE pick_date < NOW() - $1::interval RETURNING id',
