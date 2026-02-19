@@ -121,27 +121,38 @@
 
 @media (max-width: 768px) {
   .market-indices-bar {
+    flex-direction: column;
     margin-bottom: 12px;
     border-radius: 8px;
+    overflow-x: visible;
   }
 
   .index-item {
-    flex: 0 0 auto;
-    padding: 8px 14px;
-    gap: 6px;
-    min-width: fit-content;
+    flex: none;
+    padding: 9px 14px;
+    gap: 8px;
+    border-right: none;
+    border-bottom: 1px solid var(--border-primary);
+    justify-content: space-between;
+  }
+
+  .index-item:last-child {
+    border-bottom: none;
   }
 
   .index-name {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
+    min-width: 80px;
   }
 
   .index-price {
-    font-size: 0.82rem;
+    font-size: 0.85rem;
   }
 
   .index-change {
-    font-size: 0.72rem;
+    font-size: 0.75rem;
+    text-align: right;
+    min-width: 110px;
   }
 }
 
