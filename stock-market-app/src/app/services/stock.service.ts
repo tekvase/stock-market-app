@@ -306,4 +306,8 @@ export class StockService {
   triggerJob(job: string): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/dev/trigger/${job}`, {}, { headers: this.getAuthHeaders() });
   }
+
+  addManualEarning(symbol: string, date: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/earnings/manual`, { symbol, date }, { headers: this.getAuthHeaders() });
+  }
 }

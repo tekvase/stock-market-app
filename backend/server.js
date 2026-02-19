@@ -1406,6 +1406,41 @@ app.post('/api/earnings/symbols', authenticateToken, async (req, res) => {
   }
 });
 
+// Manually add earnings entry (for stocks Finnhub doesn't cover)
+app.post('/api/earnings/manual', authenticateToken, async (req, res) => {
+  try {
+    const { symbol, date } = req.body;
+    if (!symbol || !date) {
+      return res.status(400).json({ error: 'Symbol and date are required' });
+    }
+    const upperSymbol = symbol.toUpperCase().trim();
+    const earningDate = new Date(date);
+    if (isNaN(earningDate.getTime())) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+
+    // Upsert the earning record
+    const earning = await db.upsertEarning({
+      symbol: upperSymbol,
+      date: date,
+      epsActual: null,
+      epsEstimate: null,
+      time: null,
+      revenueActual: null,
+      revenueEstimate: null,
+      year: earningDate.getFullYear()
+    });
+
+    // Also track the symbol for this user
+    await db.addUserEarningsSymbol(req.user.userId, upperSymbol);
+
+    res.json({ message: `Earnings added for ${upperSymbol} on ${date}`, earning });
+  } catch (error) {
+    console.error('Error adding manual earnings:', error);
+    res.status(500).json({ error: 'Failed to add manual earnings' });
+  }
+});
+
 // Remove a symbol from user's earnings tracking
 app.delete('/api/earnings/symbols/:symbol', authenticateToken, async (req, res) => {
   try {

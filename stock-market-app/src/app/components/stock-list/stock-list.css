@@ -1658,6 +1658,22 @@ tbody tr:hover .sticky-col {
   border-color: var(--accent-blue);
 }
 
+.add-date-input-v2 {
+  padding: 8px 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  font-size: 0.8rem;
+  width: 130px;
+  outline: none;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  transition: border-color 0.2s;
+}
+
+.add-date-input-v2:focus {
+  border-color: var(--accent-blue);
+}
+
 .add-symbol-btn-v2 {
   width: 34px;
   height: 34px;
@@ -2547,6 +2563,11 @@ tbody tr:hover .sticky-col {
   }
 
   .add-symbol-input-v2 {
+    flex: 1;
+    width: auto;
+  }
+
+  .add-date-input-v2 {
     flex: 1;
     width: auto;
   }

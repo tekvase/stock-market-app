@@ -37,6 +37,7 @@ export class StockList implements OnInit, OnDestroy {
   earningsSearchTerm = '';
   customEarningsSymbols: string[] = [];
   addEarningsSymbolInput = '';
+  addEarningsDateInput = '';
   addingEarningsSymbol = false;
   earningsAddMessage = '';
   earningsAddIsError = false;
@@ -972,6 +973,32 @@ export class StockList implements OnInit, OnDestroy {
     const symbol = this.addEarningsSymbolInput.trim().toUpperCase();
     if (!symbol) return;
 
+    const date = this.addEarningsDateInput;
+
+    // If date is provided, use the manual endpoint
+    if (date) {
+      this.addingEarningsSymbol = true;
+      this.earningsAddMessage = '';
+      this.stockService.addManualEarning(symbol, date).subscribe({
+        next: () => {
+          if (!this.customEarningsSymbols.includes(symbol)) {
+            this.customEarningsSymbols.push(symbol);
+          }
+          this.addEarningsSymbolInput = '';
+          this.addEarningsDateInput = '';
+          this.addingEarningsSymbol = false;
+          this.showEarningsMessage(`${symbol} earnings added for ${date}`, false);
+          this.fetchEarningsForTrackedSymbols();
+        },
+        error: () => {
+          this.addingEarningsSymbol = false;
+          this.showEarningsMessage(`Failed to add ${symbol}`, true);
+          this.cdr.detectChanges();
+        }
+      });
+      return;
+    }
+
     // Check if already tracked
     if (this.customEarningsSymbols.includes(symbol)) {
       this.showEarningsMessage(`${symbol} is already tracked`, true);
@@ -979,6 +1006,7 @@ export class StockList implements OnInit, OnDestroy {
       return;
     }
 
+    // No date — use Finnhub auto-fetch
     this.addingEarningsSymbol = true;
     this.earningsAddMessage = '';
     this.stockService.addEarningsSymbol(symbol).subscribe({
@@ -988,10 +1016,19 @@ export class StockList implements OnInit, OnDestroy {
         }
         this.addEarningsSymbolInput = '';
         this.addingEarningsSymbol = false;
-        this.showEarningsMessage(`${symbol} added`, false);
+        // Check if earnings were actually found
         this.fetchEarningsForTrackedSymbols();
+        // After re-fetch, check if the symbol has any earnings
+        setTimeout(() => {
+          const found = this.monthlyEarnings.some((e: any) => e.Symbol === symbol);
+          if (!found) {
+            this.showEarningsMessage(`No Finnhub data for ${symbol}. Add a date to create a custom entry.`, true);
+          } else {
+            this.showEarningsMessage(`${symbol} added`, false);
+          }
+        }, 1500);
       },
-      error: (err) => {
+      error: () => {
         this.addingEarningsSymbol = false;
         this.showEarningsMessage(`Failed to add ${symbol}`, true);
         this.cdr.detectChanges();
