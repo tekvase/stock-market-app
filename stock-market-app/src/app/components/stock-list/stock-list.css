@@ -1562,108 +1562,110 @@ tbody tr:hover .sticky-col {
   color: var(--text-subtle);
 }
 
-.earnings-header {
+/* Earnings Toolbar V2 */
+.earnings-toolbar-v2 {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
   gap: 16px;
-  margin-bottom: 16px;
-}
-
-.earnings-header .panel-title {
-  margin: 0;
-  min-width: 200px;
-  text-align: center;
-}
-
-.month-nav-btn {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border-primary);
-  background: var(--bg-input);
-  border-radius: 50%;
-  font-size: 1.1rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  transition: all 0.2s;
-}
-
-.month-nav-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
-  color: var(--accent-blue);
-}
-
-.month-nav-btn:disabled,
-.month-nav-btn.disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.earnings-toolbar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
-.earnings-search {
-  padding: 7px 14px;
+.earnings-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.earnings-icon {
+  font-size: 1.4rem;
+}
+
+.earnings-title-v2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.earnings-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.earnings-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon-inline {
+  position: absolute;
+  left: 10px;
+  font-size: 0.75rem;
+  color: var(--text-subtle);
+  pointer-events: none;
+}
+
+.earnings-search-v2 {
+  padding: 8px 12px 8px 30px;
   border: 1px solid var(--border-primary);
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 0.85rem;
-  width: 180px;
+  width: 140px;
   outline: none;
   background: var(--bg-input);
   color: var(--text-primary);
+  transition: border-color 0.2s, width 0.2s;
 }
 
-.earnings-search::placeholder {
+.earnings-search-v2::placeholder {
   color: var(--text-subtle);
 }
 
-.earnings-search:focus {
+.earnings-search-v2:focus {
   border-color: var(--accent-blue);
+  width: 180px;
 }
 
-.add-symbol-group {
+.add-symbol-group-v2 {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-.add-symbol-input {
-  padding: 7px 12px;
+.add-symbol-input-v2 {
+  padding: 8px 12px;
   border: 1px solid var(--border-primary);
-  border-radius: 20px;
+  border-radius: 8px;
   font-size: 0.85rem;
-  width: 120px;
+  width: 110px;
   outline: none;
   background: var(--bg-input);
   color: var(--text-primary);
   text-transform: uppercase;
+  transition: border-color 0.2s;
 }
 
-.add-symbol-input::placeholder {
+.add-symbol-input-v2::placeholder {
   color: var(--text-subtle);
   text-transform: none;
 }
 
-.add-symbol-input:focus {
+.add-symbol-input-v2:focus {
   border-color: var(--accent-blue);
 }
 
-.add-symbol-btn {
-  width: 32px;
-  height: 32px;
+.add-symbol-btn-v2 {
+  width: 34px;
+  height: 34px;
   border: none;
-  background: var(--accent-blue);
+  background: linear-gradient(135deg, var(--accent-blue), #7c6ff0);
   color: white;
-  border-radius: 50%;
-  font-size: 1.1rem;
+  border-radius: 8px;
+  font-size: 1.2rem;
   font-weight: 700;
   cursor: pointer;
   display: flex;
@@ -1673,241 +1675,340 @@ tbody tr:hover .sticky-col {
   flex-shrink: 0;
 }
 
-.add-symbol-btn:hover:not(:disabled) {
-  background: var(--accent-blue-hover, #5570e0);
-  transform: scale(1.05);
+.add-symbol-btn-v2:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
-.add-symbol-btn:disabled {
-  opacity: 0.4;
+.add-symbol-btn-v2:disabled {
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
-.tracked-symbols {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 14px;
+.earnings-add-message {
+  padding: 8px 14px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  background: rgba(99, 102, 241, 0.1);
+  color: var(--accent-purple);
+  border-left: 3px solid var(--accent-purple);
 }
 
-.symbol-chip {
+.earnings-add-message.error {
+  background: rgba(255, 77, 77, 0.08);
+  color: #ff4d4d;
+  border-left-color: #ff4d4d;
+}
+
+/* Earnings Table V2 — single unified table */
+.earnings-table-v2 {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 0.9rem;
+}
+
+.earnings-table-v2 thead th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-subtle);
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.earnings-table-v2 thead th:nth-child(4),
+.earnings-table-v2 thead th:nth-child(5) {
+  text-align: right;
+}
+
+.earnings-table-v2 thead th:last-child {
+  width: 36px;
+}
+
+.earning-row {
+  transition: background 0.15s;
+}
+
+.earning-row:hover {
+  background: var(--bg-hover);
+}
+
+.earning-row td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-primary);
+  vertical-align: middle;
+}
+
+.earning-row:last-child td {
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.earning-row.watchlist-row-v2 {
+  background: var(--accent-purple-bg);
+}
+
+.earning-row.watchlist-row-v2:hover {
+  background: rgba(139, 92, 246, 0.12);
+}
+
+.earning-row.earnings-past {
+  opacity: 0.45;
+}
+
+/* Date cell */
+.date-cell {
+  width: 130px;
+  min-width: 130px;
+}
+
+.date-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-primary);
-  border-radius: 14px;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-secondary);
+  gap: 6px;
 }
 
-.symbol-chip-remove {
+.date-label.date-today-label {
+  color: var(--accent-green);
+}
+
+.today-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  display: inline-block;
+}
+
+/* Symbol button */
+.earnings-symbol-btn-v2 {
   background: none;
   border: none;
-  color: var(--text-muted);
-  font-size: 0.9rem;
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text-secondary);
   cursor: pointer;
-  padding: 0 2px;
-  line-height: 1;
+  padding: 4px 0;
   transition: color 0.2s;
+  text-decoration: none;
 }
 
-.symbol-chip-remove:hover {
-  color: var(--accent-red);
-}
-
-.earnings-empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--text-muted);
-}
-
-.earnings-empty-state p {
-  margin: 4px 0;
-}
-
-.empty-hint {
-  font-size: 0.85rem;
-  color: var(--text-subtle);
-}
-
-/* Earnings Date Groups */
-.earnings-date-group {
-  margin-bottom: 20px;
-}
-
-.date-header {
-  padding: 8px 14px;
-  background: var(--bg-elevated);
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid var(--border-primary);
-}
-
-.date-header.date-today {
-  background: var(--accent-green-bg);
-  border-color: var(--accent-green-bg);
-  color: var(--accent-green);
-}
-
-.date-header.date-past {
-  background: var(--bg-base);
-  color: var(--text-subtle);
-}
-
-.today-badge {
-  background: var(--gradient-green);
-  color: white;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-.past-badge {
-  background: var(--border-primary);
-  color: var(--text-subtle);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-/* Earnings Table */
-.watchlist-row {
-  background: var(--accent-purple-bg) !important;
-}
-
-.watchlist-row:hover {
-  background: var(--accent-purple-bg) !important;
-}
-
-.past-row {
-  opacity: 0.7;
-}
-
-.earnings-symbol {
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.earnings-symbol.in-watchlist {
-  color: var(--accent-purple-light);
-}
-
-.eps-actual {
-  font-weight: 600;
-  color: var(--text-secondary);
-}
-
-.beat-badge {
-  background: var(--accent-green-bg);
-  color: var(--accent-green);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
-.miss-badge {
-  background: var(--accent-red-bg);
-  color: var(--accent-red);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
-.quick-add-btn {
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--border-primary);
-  background: var(--bg-input);
-  border-radius: 50%;
-  font-size: 1rem;
-  cursor: pointer;
-  color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  transition: all 0.2s;
-}
-
-.quick-add-btn:hover {
-  background: var(--accent-green-bg);
-  border-color: var(--accent-green-bg);
-  color: var(--accent-green);
-}
-
-.in-list-icon {
-  color: var(--accent-green);
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
-.earnings-table td:nth-child(3),
-.earnings-table td:nth-child(4),
-.earnings-table td:nth-child(6) {
-  text-align: right;
-}
-
-.earnings-table th:nth-child(3),
-.earnings-table th:nth-child(4),
-.earnings-table th:nth-child(6) {
-  text-align: right;
-}
-
-.earnings-bmo {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  background: var(--accent-blue-bg);
+.earnings-symbol-btn-v2:hover {
   color: var(--accent-blue);
 }
 
-.earnings-amc {
+.earnings-symbol-btn-v2.in-watchlist {
+  color: var(--accent-purple-light);
+}
+
+.earnings-symbol-btn-v2.in-watchlist:hover {
+  color: var(--accent-purple);
+}
+
+/* Time badge */
+.time-badge {
   display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 0.8rem;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
   font-weight: 600;
-  background: var(--accent-orange-bg);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}
+
+.time-badge.time-bmo {
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--accent-blue);
+}
+
+.time-badge.time-amc {
+  background: rgba(249, 115, 22, 0.1);
   color: var(--accent-orange);
+}
+
+/* Numeric cells */
+.num-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
 }
 
 .eps-negative {
   color: var(--accent-red);
   font-weight: 600;
-  cursor: help;
 }
 
-.eps-low {
-  color: var(--accent-yellow);
-  font-weight: 600;
-  cursor: help;
-}
-
-.eps-normal {
+.eps-positive {
   color: var(--accent-green);
   font-weight: 600;
-  cursor: help;
 }
 
-.eps-strong {
-  color: var(--accent-blue);
+.no-data {
+  color: var(--text-subtle);
+  font-size: 0.8rem;
+}
+
+/* Actions cell */
+.actions-cell {
+  width: 36px;
+  text-align: center;
+}
+
+.dismiss-btn-v2 {
+  background: none;
+  border: none;
+  color: var(--text-subtle);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 6px;
+  line-height: 1;
+  opacity: 0;
+  transition: all 0.2s;
+}
+
+.earning-row:hover .dismiss-btn-v2,
+.earning-card-v2:hover .card-dismiss {
+  opacity: 0.6;
+}
+
+.dismiss-btn-v2:hover {
+  opacity: 1 !important;
+  color: var(--accent-red);
+  background: rgba(255, 77, 77, 0.08);
+}
+
+/* Mobile cards V2 */
+.earnings-mobile-v2 {
+  display: none;
+}
+
+.mobile-date-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 4px 6px;
+  font-size: 0.82rem;
   font-weight: 700;
-  cursor: help;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--border-primary);
+  margin-bottom: 8px;
+}
+
+.mobile-date-divider.date-today-label {
+  color: var(--accent-green);
+  border-bottom-color: var(--accent-green);
+}
+
+.earning-card-v2 {
+  position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.earning-card-v2:active {
+  background: var(--bg-hover-elevated);
+}
+
+.earning-card-v2.watchlist-card {
+  background: var(--accent-purple-bg);
+  border-color: rgba(139, 92, 246, 0.15);
+}
+
+.earning-card-v2.earnings-past {
+  opacity: 0.45;
+}
+
+.card-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.card-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.card-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.stat-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-subtle);
+}
+
+.stat-value {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-dismiss {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  opacity: 0;
+}
+
+/* Empty State V2 */
+.earnings-empty-v2 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.empty-content {
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.empty-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+
+.empty-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin: 0 0 6px;
+}
+
+.empty-sub {
+  font-size: 0.85rem;
+  color: var(--text-subtle);
+  margin: 0;
+  max-width: 300px;
+  margin-inline: auto;
+  line-height: 1.5;
 }
 
 /* Stock Details Popup */
@@ -2415,56 +2516,43 @@ tbody tr:hover .sticky-col {
 
   /* Hide earnings desktop table, show mobile cards */
   .earnings-desktop-table {
-    display: none;
+    display: none !important;
   }
 
-  .mobile-earnings-cards {
-    display: flex;
+  .earnings-mobile-v2 {
+    display: block !important;
+  }
+
+  .earnings-toolbar-v2 {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .earnings-toolbar-right {
     flex-direction: column;
     gap: 8px;
   }
 
-  .earnings-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-primary);
-    border-radius: 12px;
-    padding: 12px 14px;
-    cursor: pointer;
-    transition: all 0.2s;
+  .earnings-search-v2 {
+    width: 100%;
   }
 
-  .earnings-card:active {
-    background: var(--bg-hover-elevated);
+  .earnings-search-v2:focus {
+    width: 100%;
   }
 
-  .earnings-card.watchlist-row {
-    background: var(--accent-purple-bg);
-    border-color: var(--accent-purple-bg);
+  .add-symbol-group-v2 {
+    width: 100%;
   }
 
-  .earnings-card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 8px;
+  .add-symbol-input-v2 {
+    flex: 1;
+    width: auto;
   }
 
-  .earnings-card-left {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .earnings-card-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-
-  .earnings-card-detail {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  .card-dismiss {
+    opacity: 0.5 !important;
   }
 
   .options-table {

@@ -34,15 +34,13 @@ export class StockList implements OnInit, OnDestroy {
 
   monthlyEarnings: any[] = [];
   loadingEarnings = true;
-  earningsMonthLabel = '';
-  earningsMonth: Date = new Date();
-  earningsStartMonth: Date = new Date(); // first of the 3 loaded months
-  earningsMonthIndex: number = 0; // 0, 1, or 2 within the 3-month window
   earningsSearchTerm = '';
-  earningsMyStocksOnly = false;
   customEarningsSymbols: string[] = [];
   addEarningsSymbolInput = '';
   addingEarningsSymbol = false;
+  earningsAddMessage = '';
+  earningsAddIsError = false;
+  dismissedEarnings: Set<string> = new Set();
 
   userEmail = '';
   userName = '';
@@ -267,7 +265,6 @@ export class StockList implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadMarketIndices();
     this.loadUserTrades();
-    this.loadMonthlyEarnings();
     this.loadNews();
     this.startNewsAutoRefresh();
     this.startLivePriceUpdates();
@@ -366,11 +363,13 @@ export class StockList implements OnInit, OnDestroy {
 
         this.loading = false;
         this.cdr.detectChanges();
+        this.loadMonthlyEarnings();
       },
       error: (error) => {
         console.error('Error loading trades:', error);
         this.loading = false;
         this.cdr.detectChanges();
+        this.loadMonthlyEarnings(); // still load earnings even if trades fail
       }
     });
   }
@@ -891,11 +890,7 @@ export class StockList implements OnInit, OnDestroy {
 
   loadMonthlyEarnings(): void {
     this.loadingEarnings = true;
-    const today = new Date();
-    this.earningsStartMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    this.earningsMonth = new Date(this.earningsStartMonth);
-    this.earningsMonthIndex = 0;
-    this.updateEarningsLabel();
+    this.loadDismissedEarnings();
 
     // First load custom earnings symbols, then fetch earnings for combined list
     this.stockService.getUserEarningsSymbols().subscribe({
@@ -913,7 +908,7 @@ export class StockList implements OnInit, OnDestroy {
   fetchEarningsForTrackedSymbols(): void {
     const today = new Date();
     const firstDay = today;
-    const lastDay = new Date(today.getFullYear(), today.getMonth() + 3, 0);
+    const lastDay = new Date(today.getFullYear(), today.getMonth() + 6, 0);
 
     // Combine watchlist symbols + custom earnings symbols
     const watchlistSymbols = this.stocks.map(s => s.symbol);
@@ -945,41 +940,12 @@ export class StockList implements OnInit, OnDestroy {
     });
   }
 
-  updateEarningsLabel(): void {
-    this.earningsMonthLabel = this.earningsMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  }
-
-  changeEarningsMonth(direction: number): void {
-    const newIndex = this.earningsMonthIndex + direction;
-    if (newIndex < 0 || newIndex > 2) return;
-    this.earningsMonthIndex = newIndex;
-    this.earningsMonth = new Date(
-      this.earningsStartMonth.getFullYear(),
-      this.earningsStartMonth.getMonth() + newIndex,
-      1
-    );
-    this.updateEarningsLabel();
-    this.cdr.detectChanges();
-  }
-
-  canGoPrevMonth(): boolean {
-    return this.earningsMonthIndex > 0;
-  }
-
-  canGoNextMonth(): boolean {
-    return this.earningsMonthIndex < 2;
-  }
-
   onEarningsSearchChange(): void {
     this.cdr.detectChanges();
   }
 
-  onEarningsFilterChange(): void {
-    this.cdr.detectChanges();
-  }
-
   getFilteredEarnings(): any[] {
-    let filtered = this.monthlyEarnings;
+    let filtered = this.monthlyEarnings.filter(e => !this.dismissedEarnings.has(e.id));
     if (this.earningsSearchTerm) {
       const term = this.earningsSearchTerm.toUpperCase();
       filtered = filtered.filter(e => e.Symbol.includes(term));
@@ -987,30 +953,60 @@ export class StockList implements OnInit, OnDestroy {
     return filtered;
   }
 
+  dismissEarning(id: string): void {
+    this.dismissedEarnings.add(id);
+    localStorage.setItem('dismissedEarnings', JSON.stringify([...this.dismissedEarnings]));
+    this.cdr.detectChanges();
+  }
+
+  loadDismissedEarnings(): void {
+    try {
+      const stored = localStorage.getItem('dismissedEarnings');
+      if (stored) {
+        this.dismissedEarnings = new Set(JSON.parse(stored));
+      }
+    } catch {}
+  }
+
   addEarningsSymbol(): void {
     const symbol = this.addEarningsSymbolInput.trim().toUpperCase();
     if (!symbol) return;
 
     // Check if already tracked
-    const watchlistSymbols = this.stocks.map(s => s.symbol);
-    if (watchlistSymbols.includes(symbol) || this.customEarningsSymbols.includes(symbol)) {
+    if (this.customEarningsSymbols.includes(symbol)) {
+      this.showEarningsMessage(`${symbol} is already tracked`, true);
       this.addEarningsSymbolInput = '';
       return;
     }
 
     this.addingEarningsSymbol = true;
+    this.earningsAddMessage = '';
     this.stockService.addEarningsSymbol(symbol).subscribe({
       next: () => {
-        this.customEarningsSymbols.push(symbol);
+        if (!this.customEarningsSymbols.includes(symbol)) {
+          this.customEarningsSymbols.push(symbol);
+        }
         this.addEarningsSymbolInput = '';
         this.addingEarningsSymbol = false;
+        this.showEarningsMessage(`${symbol} added`, false);
         this.fetchEarningsForTrackedSymbols();
       },
-      error: () => {
+      error: (err) => {
         this.addingEarningsSymbol = false;
+        this.showEarningsMessage(`Failed to add ${symbol}`, true);
         this.cdr.detectChanges();
       }
     });
+  }
+
+  showEarningsMessage(msg: string, isError: boolean): void {
+    this.earningsAddMessage = msg;
+    this.earningsAddIsError = isError;
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      this.earningsAddMessage = '';
+      this.cdr.detectChanges();
+    }, 3000);
   }
 
   removeEarningsSymbol(symbol: string): void {
@@ -1034,16 +1030,9 @@ export class StockList implements OnInit, OnDestroy {
 
   getEarningsGroupedByDate(): { date: string; earnings: any[] }[] {
     const filtered = this.getFilteredEarnings();
-    const todayStr = new Date().toISOString().split('T')[0];
-    const currentMonth = this.earningsMonth.getMonth();
-    const currentYear = this.earningsMonth.getFullYear();
     const groups: { [key: string]: any[] } = {};
     for (const e of filtered) {
       const dateKey = e.Date.split('T')[0];
-      if (dateKey < todayStr) continue; // Skip past dates
-      // Only show earnings for the currently selected month
-      const [year, month] = dateKey.split('-').map(Number);
-      if ((month - 1) !== currentMonth || year !== currentYear) continue;
       if (!groups[dateKey]) groups[dateKey] = [];
       groups[dateKey].push(e);
     }
