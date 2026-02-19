@@ -706,14 +706,31 @@
       <input
         type="text"
         class="earnings-search"
-        placeholder="Search symbol..."
+        placeholder="Search..."
         [(ngModel)]="earningsSearchTerm"
         (input)="onEarningsSearchChange()"
       />
-      <label class="my-stocks-toggle">
-        <input type="checkbox" [(ngModel)]="earningsMyStocksOnly" (change)="onEarningsFilterChange()" />
-        My Stocks Only
-      </label>
+      <div class="add-symbol-group">
+        <input
+          type="text"
+          class="add-symbol-input"
+          placeholder="Add symbol..."
+          [(ngModel)]="addEarningsSymbolInput"
+          (keydown.enter)="addEarningsSymbol()"
+          maxlength="10"
+        />
+        <button class="add-symbol-btn" (click)="addEarningsSymbol()" [disabled]="addingEarningsSymbol || !addEarningsSymbolInput.trim()">
+          {{ addingEarningsSymbol ? '...' : '+' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Tracked Symbol Chips -->
+    <div class="tracked-symbols" *ngIf="getTrackedSymbols().length > 0">
+      <span class="symbol-chip" *ngFor="let sym of getTrackedSymbols()">
+        {{ sym }}
+        <button *ngIf="isCustomEarningsSymbol(sym)" class="symbol-chip-remove" (click)="removeEarningsSymbol(sym)" title="Remove">&times;</button>
+      </span>
     </div>
 
     <div *ngIf="loadingEarnings" class="loading" role="status" aria-live="polite">Loading earnings...</div>
@@ -800,8 +817,14 @@
           </div>
         </div>
       </div>
-      <div *ngIf="getEarningsGroupedByDate().length === 0" class="no-data">
-        No earnings found for {{ earningsMonthLabel }}.
+      <div *ngIf="getEarningsGroupedByDate().length === 0" class="earnings-empty-state">
+        <div *ngIf="getTrackedSymbols().length === 0">
+          <p>No symbols tracked yet.</p>
+          <p class="empty-hint">Add stocks to your watchlist or use the + button above to track earnings for any symbol.</p>
+        </div>
+        <div *ngIf="getTrackedSymbols().length > 0">
+          No upcoming earnings found for {{ earningsMonthLabel }}.
+        </div>
       </div>
     </div>
 

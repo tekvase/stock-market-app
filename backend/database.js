@@ -820,6 +820,57 @@ const db = {
       [daysToKeep + ' days']
     );
     return result.rowCount;
+  },
+
+  // User earnings symbols — per-user custom symbols to track earnings for
+  async initializeUserEarningsSymbolsTable() {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_earnings_symbols (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        symbol VARCHAR(10) NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, symbol)
+      )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS ix_user_earnings_symbols_user ON user_earnings_symbols(user_id)');
+    console.log('User earnings symbols table initialized');
+  },
+
+  async getUserEarningsSymbols(userId) {
+    const result = await pool.query(
+      'SELECT symbol FROM user_earnings_symbols WHERE user_id = $1 ORDER BY created_at ASC',
+      [userId]
+    );
+    return result.rows.map(r => r.symbol);
+  },
+
+  async addUserEarningsSymbol(userId, symbol) {
+    const result = await pool.query(
+      `INSERT INTO user_earnings_symbols (user_id, symbol) VALUES ($1, $2)
+       ON CONFLICT (user_id, symbol) DO NOTHING RETURNING *`,
+      [userId, symbol.toUpperCase()]
+    );
+    return result.rows[0] || null;
+  },
+
+  async removeUserEarningsSymbol(userId, symbol) {
+    const result = await pool.query(
+      'DELETE FROM user_earnings_symbols WHERE user_id = $1 AND symbol = $2 RETURNING *',
+      [userId, symbol.toUpperCase()]
+    );
+    return result.rows[0] || null;
+  },
+
+  async getEarningsBySymbols(fromDate, toDate, symbols) {
+    if (!symbols || symbols.length === 0) return [];
+    const result = await pool.query(
+      `SELECT * FROM "Earnings"
+       WHERE "Date" >= $1 AND "Date" <= $2 AND "Symbol" = ANY($3)
+       ORDER BY "Date" ASC, "Symbol" ASC`,
+      [fromDate, toDate, symbols]
+    );
+    return result.rows;
   }
 };
 

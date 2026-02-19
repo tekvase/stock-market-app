@@ -40,6 +40,9 @@ export class StockList implements OnInit, OnDestroy {
   earningsMonthIndex: number = 0; // 0, 1, or 2 within the 3-month window
   earningsSearchTerm = '';
   earningsMyStocksOnly = false;
+  customEarningsSymbols: string[] = [];
+  addEarningsSymbolInput = '';
+  addingEarningsSymbol = false;
 
   userEmail = '';
   userName = '';
@@ -894,12 +897,39 @@ export class StockList implements OnInit, OnDestroy {
     this.earningsMonthIndex = 0;
     this.updateEarningsLabel();
 
+    // First load custom earnings symbols, then fetch earnings for combined list
+    this.stockService.getUserEarningsSymbols().subscribe({
+      next: (customSymbols) => {
+        this.customEarningsSymbols = customSymbols;
+        this.fetchEarningsForTrackedSymbols();
+      },
+      error: () => {
+        this.customEarningsSymbols = [];
+        this.fetchEarningsForTrackedSymbols();
+      }
+    });
+  }
+
+  fetchEarningsForTrackedSymbols(): void {
+    const today = new Date();
     const firstDay = today;
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 3, 0);
 
+    // Combine watchlist symbols + custom earnings symbols
+    const watchlistSymbols = this.stocks.map(s => s.symbol);
+    const allSymbols = [...new Set([...watchlistSymbols, ...this.customEarningsSymbols])];
+
+    if (allSymbols.length === 0) {
+      this.monthlyEarnings = [];
+      this.loadingEarnings = false;
+      this.cdr.detectChanges();
+      return;
+    }
+
     this.stockService.getMonthlyEarnings(
       firstDay.toISOString().split('T')[0],
-      lastDay.toISOString().split('T')[0]
+      lastDay.toISOString().split('T')[0],
+      allSymbols
     ).subscribe({
       next: (data) => {
         this.monthlyEarnings = (data.earnings || []);
@@ -950,15 +980,56 @@ export class StockList implements OnInit, OnDestroy {
 
   getFilteredEarnings(): any[] {
     let filtered = this.monthlyEarnings;
-    if (this.earningsMyStocksOnly) {
-      const watchlistSymbols = this.stocks.map(s => s.symbol);
-      filtered = filtered.filter(e => watchlistSymbols.includes(e.Symbol));
-    }
     if (this.earningsSearchTerm) {
       const term = this.earningsSearchTerm.toUpperCase();
       filtered = filtered.filter(e => e.Symbol.includes(term));
     }
     return filtered;
+  }
+
+  addEarningsSymbol(): void {
+    const symbol = this.addEarningsSymbolInput.trim().toUpperCase();
+    if (!symbol) return;
+
+    // Check if already tracked
+    const watchlistSymbols = this.stocks.map(s => s.symbol);
+    if (watchlistSymbols.includes(symbol) || this.customEarningsSymbols.includes(symbol)) {
+      this.addEarningsSymbolInput = '';
+      return;
+    }
+
+    this.addingEarningsSymbol = true;
+    this.stockService.addEarningsSymbol(symbol).subscribe({
+      next: () => {
+        this.customEarningsSymbols.push(symbol);
+        this.addEarningsSymbolInput = '';
+        this.addingEarningsSymbol = false;
+        this.fetchEarningsForTrackedSymbols();
+      },
+      error: () => {
+        this.addingEarningsSymbol = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  removeEarningsSymbol(symbol: string): void {
+    this.stockService.removeEarningsSymbol(symbol).subscribe({
+      next: () => {
+        this.customEarningsSymbols = this.customEarningsSymbols.filter(s => s !== symbol);
+        this.fetchEarningsForTrackedSymbols();
+      },
+      error: () => {}
+    });
+  }
+
+  isCustomEarningsSymbol(symbol: string): boolean {
+    return this.customEarningsSymbols.includes(symbol);
+  }
+
+  getTrackedSymbols(): string[] {
+    const watchlistSymbols = this.stocks.map(s => s.symbol);
+    return [...new Set([...watchlistSymbols, ...this.customEarningsSymbols])];
   }
 
   getEarningsGroupedByDate(): { date: string; earnings: any[] }[] {

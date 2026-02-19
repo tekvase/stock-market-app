@@ -106,15 +106,43 @@ export class StockService {
     );
   }
 
-  getMonthlyEarnings(from?: string, to?: string): Observable<any> {
+  getMonthlyEarnings(from?: string, to?: string, symbols?: string[]): Observable<any> {
     let url = `${this.apiUrl}/earnings/monthly`;
     const params: string[] = [];
     if (from) params.push(`from=${from}`);
     if (to) params.push(`to=${to}`);
+    if (symbols && symbols.length > 0) params.push(`symbols=${symbols.join(',')}`);
     if (params.length) url += `?${params.join('&')}`;
     return this.http.get<any>(url).pipe(
       catchError(error => {
         console.error('Error fetching monthly earnings:', error);
+        throw error;
+      })
+    );
+  }
+
+  getUserEarningsSymbols(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.apiUrl}/earnings/user-symbols`, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error('Error fetching user earnings symbols:', error);
+        return of([]);
+      })
+    );
+  }
+
+  addEarningsSymbol(symbol: string): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/earnings/symbols`, { symbol }, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error('Error adding earnings symbol:', error);
+        throw error;
+      })
+    );
+  }
+
+  removeEarningsSymbol(symbol: string): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/earnings/symbols/${symbol}`, { headers: this.getAuthHeaders() }).pipe(
+      catchError(error => {
+        console.error('Error removing earnings symbol:', error);
         throw error;
       })
     );

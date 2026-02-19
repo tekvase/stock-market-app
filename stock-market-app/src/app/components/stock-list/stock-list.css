@@ -1629,19 +1629,108 @@ tbody tr:hover .sticky-col {
   border-color: var(--accent-blue);
 }
 
-.my-stocks-toggle {
+.add-symbol-group {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  cursor: pointer;
-  user-select: none;
+  gap: 4px;
 }
 
-.my-stocks-toggle input {
+.add-symbol-input {
+  padding: 7px 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 20px;
+  font-size: 0.85rem;
+  width: 120px;
+  outline: none;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  text-transform: uppercase;
+}
+
+.add-symbol-input::placeholder {
+  color: var(--text-subtle);
+  text-transform: none;
+}
+
+.add-symbol-input:focus {
+  border-color: var(--accent-blue);
+}
+
+.add-symbol-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: var(--accent-blue);
+  color: white;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  font-weight: 700;
   cursor: pointer;
-  accent-color: var(--accent-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.add-symbol-btn:hover:not(:disabled) {
+  background: var(--accent-blue-hover, #5570e0);
+  transform: scale(1.05);
+}
+
+.add-symbol-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tracked-symbols {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.symbol-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.symbol-chip-remove {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.symbol-chip-remove:hover {
+  color: var(--accent-red);
+}
+
+.earnings-empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+}
+
+.earnings-empty-state p {
+  margin: 4px 0;
+}
+
+.empty-hint {
+  font-size: 0.85rem;
+  color: var(--text-subtle);
 }
 
 /* Earnings Date Groups */
@@ -2512,6 +2601,24 @@ tbody tr:hover .sticky-col {
 
   .earnings-search {
     width: 100%;
+  }
+
+  .add-symbol-group {
+    width: 100%;
+  }
+
+  .add-symbol-input {
+    flex: 1;
+    width: auto;
+  }
+
+  .tracked-symbols {
+    gap: 4px;
+  }
+
+  .symbol-chip {
+    font-size: 0.72rem;
+    padding: 3px 8px;
   }
 
   /* Monthly P&L */

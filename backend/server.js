@@ -1220,7 +1220,7 @@ app.get('/api/metric-explanations', async (req, res) => {
 
 // Earnings endpoints
 
-// Get monthly earnings (current month by default)
+// Get monthly earnings — optionally filtered by symbol list
 app.get('/api/earnings/monthly', async (req, res) => {
   try {
     const today = new Date();
@@ -1229,8 +1229,15 @@ app.get('/api/earnings/monthly', async (req, res) => {
 
     const fromDate = req.query.from || firstDay.toISOString().split('T')[0];
     const toDate = req.query.to || lastDay.toISOString().split('T')[0];
+    const symbolsParam = req.query.symbols; // comma-separated
 
-    const earnings = await db.getEarnings(fromDate, toDate);
+    let earnings;
+    if (symbolsParam) {
+      const symbols = symbolsParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+      earnings = await db.getEarningsBySymbols(fromDate, toDate, symbols);
+    } else {
+      earnings = await db.getEarnings(fromDate, toDate);
+    }
     res.json({ fromDate, toDate, earnings });
   } catch (error) {
     console.error('Error fetching monthly earnings:', error);
@@ -1246,6 +1253,85 @@ app.post('/api/earnings/refresh', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Error refreshing earnings:', error);
     res.status(500).json({ error: 'Failed to refresh earnings' });
+  }
+});
+
+// Get user's custom earnings symbols
+app.get('/api/earnings/user-symbols', authenticateToken, async (req, res) => {
+  try {
+    const symbols = await db.getUserEarningsSymbols(req.user.userId);
+    res.json(symbols);
+  } catch (error) {
+    console.error('Error fetching user earnings symbols:', error);
+    res.status(500).json({ error: 'Failed to fetch earnings symbols' });
+  }
+});
+
+// Add a symbol to user's earnings tracking
+app.post('/api/earnings/symbols', authenticateToken, async (req, res) => {
+  try {
+    const { symbol } = req.body;
+    if (!symbol) {
+      return res.status(400).json({ error: 'Symbol is required' });
+    }
+    const upperSymbol = symbol.toUpperCase();
+
+    // Add to user's earnings symbols list
+    await db.addUserEarningsSymbol(req.user.userId, upperSymbol);
+
+    // Check if earnings exist in DB for next 3 months
+    const todayStr = new Date().toISOString().split('T')[0];
+    const threeMonthsOut = new Date();
+    threeMonthsOut.setMonth(threeMonthsOut.getMonth() + 3);
+    const toStr = threeMonthsOut.toISOString().split('T')[0];
+
+    const existing = await db.getEarningsBySymbols(todayStr, toStr, [upperSymbol]);
+
+    if (existing.length === 0) {
+      // Fetch from Finnhub and insert
+      try {
+        const data = await finnhubRequest('/calendar/earnings', {
+          symbol: upperSymbol,
+          from: todayStr,
+          to: toStr
+        });
+
+        if (data && data.earningsCalendar && data.earningsCalendar.length > 0) {
+          const earnings = data.earningsCalendar.map(item => ({
+            symbol: item.symbol,
+            date: item.date,
+            epsActual: item.epsActual || null,
+            epsEstimate: item.epsEstimate || null,
+            time: item.hour || null,
+            revenueActual: item.revenueActual || null,
+            revenueEstimate: item.revenueEstimate || null,
+            year: item.year || new Date(item.date).getFullYear()
+          }));
+          await db.initializeEarningsConstraint();
+          await db.bulkInsertEarnings(earnings);
+          console.log(`📅 Fetched ${earnings.length} earnings for ${upperSymbol} (user request)`);
+        }
+      } catch (err) {
+        console.error(`Failed to fetch earnings for ${upperSymbol}:`, err.message);
+      }
+    }
+
+    res.json({ message: 'Symbol added to earnings tracking', symbol: upperSymbol });
+  } catch (error) {
+    console.error('Error adding earnings symbol:', error);
+    res.status(500).json({ error: 'Failed to add earnings symbol' });
+  }
+});
+
+// Remove a symbol from user's earnings tracking
+app.delete('/api/earnings/symbols/:symbol', authenticateToken, async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    await db.removeUserEarningsSymbol(req.user.userId, symbol.toUpperCase());
+    res.json({ message: 'Symbol removed from earnings tracking', symbol: symbol.toUpperCase() });
+  } catch (error) {
+    console.error('Error removing earnings symbol:', error);
+    res.status(500).json({ error: 'Failed to remove earnings symbol' });
   }
 });
 
@@ -1397,6 +1483,7 @@ async function startServer() {
     await db.initializeMetricExplanationsTable();
     await db.initializeOptionTradesTable();
     await db.initializeAiPicksTable();
+    await db.initializeUserEarningsSymbolsTable();
     console.log('Database tables initialized');
 
     // Initialize scheduler
