@@ -85,10 +85,33 @@ export class StockList implements OnInit, OnDestroy {
   showAnalysisPopup = false;
   analysisError = '';
 
+  // AI Daily Picks
+  dailyPicks: any[] = [];
+  loadingPicks = false;
+  picksDate = '';
+  picksTotalCount = 0;
+  picksCategories: string[] = [];
+  activePriceFilter = 'all';
+  activeCategoryFilter = '';
+  picksSortBy = 'ai_score';
+  picksOffset = 0;
+  picksLimit = 30;
+  picksHasMore = false;
+
+  priceFilters = [
+    { id: 'all', label: 'All', min: undefined as number | undefined, max: undefined as number | undefined },
+    { id: 'under30', label: 'Under $30', min: undefined as number | undefined, max: 30 },
+    { id: 'under50', label: 'Under $50', min: undefined as number | undefined, max: 50 },
+    { id: 'under100', label: 'Under $100', min: undefined as number | undefined, max: 100 },
+    { id: '100-300', label: '$100–$300', min: 100, max: 300 },
+    { id: '300-500', label: '$300–$500', min: 300, max: 500 },
+    { id: '500plus', label: '$500+', min: 500, max: undefined as number | undefined }
+  ];
+
   allTabs = [
     { id: 'watchlist', label: 'Stock Watch List', minAccess: 1 },
     { id: 'options', label: 'Options', minAccess: 1 },
-    { id: 'recommendations', label: 'Daily Recommendation', minAccess: 2 },
+    { id: 'recommendations', label: 'AI Daily Picks', minAccess: 2 },
     { id: 'earnings', label: 'Monthly Earnings', minAccess: 2 },
     { id: 'news', label: 'News', minAccess: 3 }
   ];
@@ -97,6 +120,102 @@ export class StockList implements OnInit, OnDestroy {
 
   selectTab(tabId: string): void {
     this.activeTab = tabId;
+    if (tabId === 'recommendations' && this.dailyPicks.length === 0) {
+      this.loadDailyPicks(true);
+    }
+  }
+
+  loadDailyPicks(reset: boolean = false): void {
+    if (reset) {
+      this.picksOffset = 0;
+      this.dailyPicks = [];
+    }
+    this.loadingPicks = true;
+
+    const priceFilter = this.priceFilters.find(f => f.id === this.activePriceFilter);
+
+    this.stockService.getDailyPicks({
+      priceMin: priceFilter?.min,
+      priceMax: priceFilter?.max,
+      category: this.activeCategoryFilter || undefined,
+      sortBy: this.picksSortBy,
+      limit: this.picksLimit,
+      offset: this.picksOffset
+    }).subscribe({
+      next: (data) => {
+        if (reset || this.picksOffset === 0) {
+          this.dailyPicks = data.picks || [];
+        } else {
+          this.dailyPicks = [...this.dailyPicks, ...(data.picks || [])];
+        }
+        this.picksDate = data.date || '';
+        this.picksTotalCount = data.totalCount || 0;
+        this.picksCategories = data.categories || [];
+        this.picksHasMore = this.dailyPicks.length < this.picksTotalCount;
+        this.loadingPicks = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.loadingPicks = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  setPriceFilter(filterId: string): void {
+    this.activePriceFilter = filterId;
+    this.loadDailyPicks(true);
+  }
+
+  setCategoryFilter(category: string): void {
+    this.activeCategoryFilter = this.activeCategoryFilter === category ? '' : category;
+    this.loadDailyPicks(true);
+  }
+
+  loadMorePicks(): void {
+    this.picksOffset += this.picksLimit;
+    this.loadDailyPicks(false);
+  }
+
+  getAiScoreClass(score: number): string {
+    if (score >= 80) return 'ai-score-high';
+    if (score >= 60) return 'ai-score-medium';
+    return 'ai-score-low';
+  }
+
+  getSentimentClass(label: string): string {
+    if (label === 'Bullish') return 'sentiment-bullish';
+    if (label === 'Bearish') return 'sentiment-bearish';
+    return 'sentiment-neutral';
+  }
+
+  getPickRecommendationTotal(pick: any): number {
+    return (pick.strong_buy || 0) + (pick.buy || 0) + (pick.hold || 0) + (pick.sell || 0) + (pick.strong_sell || 0);
+  }
+
+  addPickToWatchlist(pick: any): void {
+    this.stockService.addUserTrade(pick.symbol, pick.price).subscribe({
+      next: (trade) => {
+        this.stocks = [{
+          symbol: trade.symbol,
+          name: pick.name,
+          price: pick.price,
+          buyPrice: trade.buy_price,
+          targetPrice1: trade.target_price_1,
+          targetPrice2: trade.target_price_2,
+          targetPrice3: trade.target_price_3,
+          stopLoss: trade.stop_loss_price,
+          status: trade.status,
+          change: pick.change || 0,
+          changePercent: pick.change_percent || 0
+        }, ...this.stocks];
+        this.livePriceService.subscribe([trade.symbol]);
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error adding pick:', error);
+      }
+    });
   }
 
   onTabKeydown(event: KeyboardEvent, index: number): void {

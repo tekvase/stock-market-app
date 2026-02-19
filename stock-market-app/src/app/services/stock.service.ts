@@ -211,6 +211,32 @@ export class StockService {
     );
   }
 
+  getDailyPicks(params?: {
+    priceMin?: number;
+    priceMax?: number;
+    category?: string;
+    sortBy?: string;
+    limit?: number;
+    offset?: number;
+  }): Observable<any> {
+    let url = `${this.apiUrl}/recommendations/daily`;
+    const queryParams: string[] = [];
+    if (params?.priceMin !== undefined) queryParams.push(`priceMin=${params.priceMin}`);
+    if (params?.priceMax !== undefined) queryParams.push(`priceMax=${params.priceMax}`);
+    if (params?.category) queryParams.push(`category=${encodeURIComponent(params.category)}`);
+    if (params?.sortBy) queryParams.push(`sortBy=${params.sortBy}`);
+    if (params?.limit) queryParams.push(`limit=${params.limit}`);
+    if (params?.offset) queryParams.push(`offset=${params.offset}`);
+    if (queryParams.length > 0) url += '?' + queryParams.join('&');
+
+    return this.http.get<any>(url).pipe(
+      catchError(error => {
+        console.error('Error fetching daily picks:', error);
+        return of({ date: null, picks: [], totalCount: 0, categories: [] });
+      })
+    );
+  }
+
   getEarningsAnalysis(symbol: string): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/earnings/analysis/${symbol}`).pipe(
       catchError(error => {

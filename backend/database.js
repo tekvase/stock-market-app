@@ -635,6 +635,174 @@ const db = {
       closedAt: row.closed_at || row.created_at,
       createdAt: row.created_at
     }));
+  },
+
+  // AI Daily Picks operations
+  async initializeAiPicksTable() {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_daily_picks (
+        id SERIAL PRIMARY KEY,
+        symbol VARCHAR(10) NOT NULL,
+        name VARCHAR(200),
+        sector VARCHAR(100),
+        logo TEXT,
+        price NUMERIC(12, 2),
+        change NUMERIC(12, 4),
+        change_percent NUMERIC(8, 4),
+        strong_buy INTEGER DEFAULT 0,
+        buy INTEGER DEFAULT 0,
+        hold INTEGER DEFAULT 0,
+        sell INTEGER DEFAULT 0,
+        strong_sell INTEGER DEFAULT 0,
+        buy_ratio INTEGER DEFAULT 0,
+        consensus VARCHAR(20),
+        total_analysts INTEGER DEFAULT 0,
+        ai_score INTEGER DEFAULT 0,
+        sentiment_score NUMERIC(6, 3),
+        sentiment_label VARCHAR(20),
+        momentum_score NUMERIC(6, 3),
+        reason_text TEXT,
+        category VARCHAR(50),
+        news_positive_count INTEGER DEFAULT 0,
+        news_negative_count INTEGER DEFAULT 0,
+        news_total_count INTEGER DEFAULT 0,
+        avg_volume NUMERIC(14, 2) DEFAULT 0,
+        market_cap NUMERIC(14, 2) DEFAULT 0,
+        eps_growth NUMERIC(10, 4),
+        revenue_growth NUMERIC(10, 4),
+        pe_ratio NUMERIC(10, 4),
+        week_13_return NUMERIC(10, 4),
+        above_50_ma BOOLEAN DEFAULT false,
+        pick_date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    // Add new columns for existing tables
+    const newCols = [
+      'avg_volume NUMERIC(14, 2) DEFAULT 0',
+      'market_cap NUMERIC(14, 2) DEFAULT 0',
+      'eps_growth NUMERIC(10, 4)',
+      'revenue_growth NUMERIC(10, 4)',
+      'pe_ratio NUMERIC(10, 4)',
+      'week_13_return NUMERIC(10, 4)',
+      'above_50_ma BOOLEAN DEFAULT false'
+    ];
+    for (const col of newCols) {
+      try { await pool.query(`ALTER TABLE ai_daily_picks ADD COLUMN IF NOT EXISTS ${col}`); } catch(e) {}
+    }
+    await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS ai_picks_symbol_date ON ai_daily_picks(symbol, pick_date)');
+    await pool.query('CREATE INDEX IF NOT EXISTS ai_picks_date_score ON ai_daily_picks(pick_date, ai_score DESC)');
+    await pool.query('CREATE INDEX IF NOT EXISTS ai_picks_category ON ai_daily_picks(pick_date, category)');
+    console.log('AI daily picks table initialized');
+  },
+
+  async bulkUpsertAiPicks(picks) {
+    const seen = new Set();
+    const unique = picks.filter(p => {
+      const key = p.symbol + '|' + p.pick_date;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    let inserted = 0;
+    const batchSize = 50;
+    for (let i = 0; i < unique.length; i += batchSize) {
+      const batch = unique.slice(i, i + batchSize);
+      const values = [];
+      const params = [];
+      let paramIdx = 1;
+      for (const item of batch) {
+        values.push(`($${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, NOW())`);
+        params.push(
+          item.symbol, item.name, item.sector, item.logo,
+          item.price, item.change, item.change_percent,
+          item.strong_buy, item.buy, item.hold, item.sell, item.strong_sell,
+          item.buy_ratio, item.consensus, item.total_analysts,
+          item.ai_score, item.sentiment_score, item.sentiment_label, item.momentum_score,
+          item.reason_text, item.category,
+          item.news_positive_count, item.news_negative_count, item.news_total_count,
+          item.avg_volume || 0, item.market_cap || 0,
+          item.eps_growth ?? null, item.revenue_growth ?? null,
+          item.pe_ratio ?? null, item.week_13_return ?? null,
+          item.above_50_ma || false,
+          item.pick_date
+        );
+      }
+      try {
+        const query = `INSERT INTO ai_daily_picks (symbol, name, sector, logo, price, change, change_percent, strong_buy, buy, hold, sell, strong_sell, buy_ratio, consensus, total_analysts, ai_score, sentiment_score, sentiment_label, momentum_score, reason_text, category, news_positive_count, news_negative_count, news_total_count, avg_volume, market_cap, eps_growth, revenue_growth, pe_ratio, week_13_return, above_50_ma, pick_date, updated_at) VALUES ${values.join(', ')} ON CONFLICT (symbol, pick_date) DO UPDATE SET name = EXCLUDED.name, sector = EXCLUDED.sector, logo = EXCLUDED.logo, price = EXCLUDED.price, change = EXCLUDED.change, change_percent = EXCLUDED.change_percent, strong_buy = EXCLUDED.strong_buy, buy = EXCLUDED.buy, hold = EXCLUDED.hold, sell = EXCLUDED.sell, strong_sell = EXCLUDED.strong_sell, buy_ratio = EXCLUDED.buy_ratio, consensus = EXCLUDED.consensus, total_analysts = EXCLUDED.total_analysts, ai_score = EXCLUDED.ai_score, sentiment_score = EXCLUDED.sentiment_score, sentiment_label = EXCLUDED.sentiment_label, momentum_score = EXCLUDED.momentum_score, reason_text = EXCLUDED.reason_text, category = EXCLUDED.category, news_positive_count = EXCLUDED.news_positive_count, news_negative_count = EXCLUDED.news_negative_count, news_total_count = EXCLUDED.news_total_count, avg_volume = EXCLUDED.avg_volume, market_cap = EXCLUDED.market_cap, eps_growth = EXCLUDED.eps_growth, revenue_growth = EXCLUDED.revenue_growth, pe_ratio = EXCLUDED.pe_ratio, week_13_return = EXCLUDED.week_13_return, above_50_ma = EXCLUDED.above_50_ma, updated_at = NOW()`;
+        await pool.query(query, params);
+        inserted += batch.length;
+      } catch (err) {
+        console.error('Error in AI picks batch insert:', err.message);
+      }
+    }
+    return inserted;
+  },
+
+  async getAiDailyPicks({ priceMin, priceMax, category, sortBy, limit, offset }) {
+    const today = new Date().toISOString().split('T')[0];
+    let query = 'SELECT * FROM ai_daily_picks WHERE pick_date = $1';
+    const params = [today];
+    let paramIdx = 2;
+
+    if (priceMin !== null && priceMin !== undefined) {
+      query += ` AND price >= $${paramIdx++}`;
+      params.push(priceMin);
+    }
+    if (priceMax !== null && priceMax !== undefined) {
+      query += ` AND price <= $${paramIdx++}`;
+      params.push(priceMax);
+    }
+    if (category) {
+      query += ` AND category = $${paramIdx++}`;
+      params.push(category);
+    }
+
+    const validSorts = { ai_score: 'ai_score DESC', price: 'price ASC', change_percent: 'change_percent DESC' };
+    query += ` ORDER BY ${validSorts[sortBy] || 'ai_score DESC'}`;
+    query += ` LIMIT $${paramIdx++} OFFSET $${paramIdx++}`;
+    params.push(limit || 50, offset || 0);
+
+    const result = await pool.query(query, params);
+    return result.rows;
+  },
+
+  async getAiPicksTotalCount({ priceMin, priceMax, category }) {
+    const today = new Date().toISOString().split('T')[0];
+    let query = 'SELECT COUNT(*) FROM ai_daily_picks WHERE pick_date = $1';
+    const params = [today];
+    let paramIdx = 2;
+
+    if (priceMin !== null && priceMin !== undefined) {
+      query += ` AND price >= $${paramIdx++}`;
+      params.push(priceMin);
+    }
+    if (priceMax !== null && priceMax !== undefined) {
+      query += ` AND price <= $${paramIdx++}`;
+      params.push(priceMax);
+    }
+    if (category) {
+      query += ` AND category = $${paramIdx++}`;
+      params.push(category);
+    }
+
+    const result = await pool.query(query, params);
+    return parseInt(result.rows[0].count);
+  },
+
+  async getAiPicksCount(date) {
+    const result = await pool.query('SELECT COUNT(*) FROM ai_daily_picks WHERE pick_date = $1', [date]);
+    return parseInt(result.rows[0].count);
+  },
+
+  async cleanupOldAiPicks(daysToKeep = 7) {
+    const result = await pool.query(
+      'DELETE FROM ai_daily_picks WHERE pick_date < NOW() - $1::interval RETURNING id',
+      [daysToKeep + ' days']
+    );
+    return result.rowCount;
   }
 };
 

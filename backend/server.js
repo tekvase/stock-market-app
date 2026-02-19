@@ -14,7 +14,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { Server: SocketIO } = require('socket.io');
 const { db, pool } = require('./database');
-const { initializeScheduler, refreshAllStocks, refreshEarnings, getDailyPicks } = require('./scheduler');
+const { initializeScheduler, refreshAllStocks, refreshEarnings, refreshAiDailyPicks } = require('./scheduler');
 const { FinnhubWebSocketManager } = require('./websocket-manager');
 
 // Email transporter
@@ -621,13 +621,42 @@ app.get('/api/scheduler/status', (req, res) => {
   }
 });
 
-// Daily stock picks endpoint
-app.get('/api/recommendations/daily', (req, res) => {
-  const cached = getDailyPicks();
-  if (cached && cached.picks && cached.picks.length > 0) {
-    res.json(cached);
-  } else {
-    res.json({ date: new Date().toISOString().split('T')[0], picks: [] });
+// AI Daily Picks endpoint with filtering
+app.get('/api/recommendations/daily', async (req, res) => {
+  try {
+    const {
+      priceMin,
+      priceMax,
+      category,
+      sortBy = 'ai_score',
+      limit = '50',
+      offset = '0'
+    } = req.query;
+
+    const picks = await db.getAiDailyPicks({
+      priceMin: priceMin ? parseFloat(priceMin) : null,
+      priceMax: priceMax ? parseFloat(priceMax) : null,
+      category: category || null,
+      sortBy,
+      limit: Math.min(parseInt(limit), 200),
+      offset: parseInt(offset)
+    });
+
+    const totalCount = await db.getAiPicksTotalCount({
+      priceMin: priceMin ? parseFloat(priceMin) : null,
+      priceMax: priceMax ? parseFloat(priceMax) : null,
+      category: category || null
+    });
+
+    res.json({
+      date: picks.length > 0 ? picks[0].pick_date : new Date().toISOString().split('T')[0],
+      picks,
+      totalCount,
+      categories: ['Low-Cost Opportunities', 'Mid-Cap Momentum', 'High-Value Premium', 'Breakout Candidates']
+    });
+  } catch (error) {
+    console.error('Error fetching AI daily picks:', error);
+    res.status(500).json({ error: 'Failed to fetch AI daily picks' });
   }
 });
 
@@ -1286,6 +1315,7 @@ async function startServer() {
     await db.initializeEarningsConstraint();
     await db.initializeMetricExplanationsTable();
     await db.initializeOptionTradesTable();
+    await db.initializeAiPicksTable();
     console.log('Database tables initialized');
 
     // Initialize scheduler
