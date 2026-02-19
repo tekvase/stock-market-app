@@ -93,6 +93,23 @@ export class StockList implements OnInit, OnDestroy {
   marketIndices: any[] = [];
   loadingIndices = true;
 
+  // Buy/Sell Signals
+  signals: any[] = [];
+  signalsDismissed = false;
+
+  // Market Regime
+  marketRegime = '';
+
+  // Market Intelligence
+  Math = Math;
+  sectorData: any[] = [];
+  insiderTrades: any[] = [];
+  sentimentData: any[] = [];
+  loadingSectors = false;
+  loadingInsiders = false;
+  loadingSentiment = false;
+  intelLoaded = false;
+
   // AI Daily Picks
   dailyPicks: any[] = [];
   loadingPicks = false;
@@ -121,15 +138,22 @@ export class StockList implements OnInit, OnDestroy {
     { id: 'options', label: 'Options', minAccess: 1 },
     { id: 'recommendations', label: 'AI Daily Picks', minAccess: 2 },
     { id: 'earnings', label: 'Monthly Earnings', minAccess: 2 },
-    { id: 'news', label: 'News', minAccess: 3 }
+    { id: 'news', label: 'News', minAccess: 3 },
+    { id: 'intel', label: 'Market Intel', minAccess: 2 }
   ];
   tabs: { id: string; label: string; minAccess: number }[] = [];
   activeTab = 'watchlist';
 
   selectTab(tabId: string): void {
     this.activeTab = tabId;
+    if (tabId === 'intel' && !this.intelLoaded) {
+      this.loadIntelData();
+    }
     if (tabId === 'recommendations' && this.dailyPicks.length === 0) {
       this.loadDailyPicks(true);
+    }
+    if (tabId === 'watchlist' && this.signals.length === 0 && this.stocks.length > 0) {
+      this.loadSignals();
     }
   }
 
@@ -285,18 +309,63 @@ export class StockList implements OnInit, OnDestroy {
 
   loadMarketIndices(): void {
     this.loadingIndices = true;
-    this.stockService.getMarketIndices().subscribe({
+    this.stockService.getMarketIndicesCharts().subscribe({
       next: (data) => {
         this.marketIndices = data;
         this.loadingIndices = false;
         this.cdr.detectChanges();
       },
       error: () => {
-        this.marketIndices = [];
-        this.loadingIndices = false;
-        this.cdr.detectChanges();
+        // Fallback to plain indices
+        this.stockService.getMarketIndices().subscribe({
+          next: (data) => {
+            this.marketIndices = data;
+            this.loadingIndices = false;
+            this.cdr.detectChanges();
+          },
+          error: () => {
+            this.marketIndices = [];
+            this.loadingIndices = false;
+            this.cdr.detectChanges();
+          }
+        });
       }
     });
+  }
+
+  getSparklinePath(candles: any[]): string {
+    if (!candles || candles.length < 2) return '';
+    const closes = candles.map(c => c.close);
+    const min = Math.min(...closes);
+    const max = Math.max(...closes);
+    const range = max - min || 1;
+    const points = closes.map((val, i) => {
+      const x = (i / (closes.length - 1)) * 100;
+      const y = 30 - ((val - min) / range) * 28;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    return points.join(' ');
+  }
+
+  loadSignals(): void {
+    this.stockService.getSignals().subscribe({
+      next: (data) => {
+        this.signals = data || [];
+        this.cdr.detectChanges();
+      },
+      error: () => { this.signals = []; }
+    });
+  }
+
+  dismissSignals(): void {
+    this.signalsDismissed = true;
+    this.cdr.detectChanges();
+  }
+
+  getSignalClass(signal: string): string {
+    if (signal.includes('Buy')) return 'signal-buy';
+    if (signal.includes('Sell')) return 'signal-sell';
+    return 'signal-hold';
   }
 
   startLivePriceUpdates(): void {
@@ -365,6 +434,7 @@ export class StockList implements OnInit, OnDestroy {
         this.loading = false;
         this.cdr.detectChanges();
         this.loadMonthlyEarnings();
+        this.loadSignals();
       },
       error: (error) => {
         console.error('Error loading trades:', error);
@@ -454,6 +524,52 @@ export class StockList implements OnInit, OnDestroy {
       }
       return false;
     }).map(s => s.symbol);
+  }
+
+  // Market Intelligence
+  loadIntelData(): void {
+    this.intelLoaded = true;
+    this.loadSectorData();
+    this.loadInsiderTrades();
+    this.loadSentimentData();
+  }
+
+  loadSectorData(): void {
+    this.loadingSectors = true;
+    this.stockService.getSectorPerformance().subscribe({
+      next: (data) => { this.sectorData = data; this.loadingSectors = false; this.cdr.detectChanges(); },
+      error: () => { this.loadingSectors = false; this.cdr.detectChanges(); }
+    });
+  }
+
+  loadInsiderTrades(): void {
+    this.loadingInsiders = true;
+    const symbols = this.stocks.map(s => s.symbol);
+    this.stockService.getInsiderTrades(symbols).subscribe({
+      next: (data) => { this.insiderTrades = data; this.loadingInsiders = false; this.cdr.detectChanges(); },
+      error: () => { this.loadingInsiders = false; this.cdr.detectChanges(); }
+    });
+  }
+
+  loadSentimentData(): void {
+    this.loadingSentiment = true;
+    const symbols = this.stocks.map(s => s.symbol);
+    this.stockService.getSentimentData(symbols).subscribe({
+      next: (data) => { this.sentimentData = data; this.loadingSentiment = false; this.cdr.detectChanges(); },
+      error: () => { this.loadingSentiment = false; this.cdr.detectChanges(); }
+    });
+  }
+
+  getSentimentColor(score: number): string {
+    if (score > 20) return '#22c55e';
+    if (score < -20) return '#ef4444';
+    return '#f59e0b';
+  }
+
+  getSentimentBarWidth(item: any, type: string): number {
+    const total = item.positive + item.negative + item.neutral;
+    if (total === 0) return 0;
+    return Math.round(((item as any)[type] / total) * 100);
   }
 
   getFilteredStocks(): any[] {

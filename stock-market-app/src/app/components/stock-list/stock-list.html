@@ -1,19 +1,24 @@
 <div class="dashboard-container">
-  <!-- Market Indices Banner -->
+  <!-- Market Indices with Sparkline Charts -->
   <div class="market-indices-bar" *ngIf="marketIndices.length > 0">
-    <div *ngFor="let idx of marketIndices" class="index-item" [class.up]="idx.change >= 0" [class.down]="idx.change < 0">
-      <div class="index-top">
+    <div *ngFor="let idx of marketIndices" class="index-card" [class.up]="idx.change >= 0" [class.down]="idx.change < 0">
+      <div class="index-card-info">
         <span class="index-name">{{ idx.name }}</span>
+        <span class="index-price">{{ idx.price | number:'1.2-2' }}</span>
         <span class="index-change-pct" [class.positive]="idx.change >= 0" [class.negative]="idx.change < 0">
           {{ idx.changePercent >= 0 ? '+' : '' }}{{ idx.changePercent | number:'1.2-2' }}%
         </span>
       </div>
-      <div class="index-bottom">
-        <span class="index-price">{{ idx.price | number:'1.2-2' }}</span>
-        <span class="index-change-abs" [class.positive]="idx.change >= 0" [class.negative]="idx.change < 0">
-          {{ idx.change >= 0 ? '+' : '' }}{{ idx.change | number:'1.2-2' }}
-        </span>
-      </div>
+      <svg *ngIf="idx.candles?.length > 1" class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+        <polyline
+          [attr.points]="getSparklinePath(idx.candles)"
+          fill="none"
+          [attr.stroke]="idx.change >= 0 ? '#22c55e' : '#ef4444'"
+          stroke-width="1.5"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+        />
+      </svg>
     </div>
   </div>
 
@@ -161,6 +166,27 @@
     class="section tab-panel"
   >
     <div *ngIf="loading" class="loading" role="status" aria-live="polite">Loading stocks...</div>
+
+    <!-- Buy/Sell Signal Banner -->
+    <div class="signals-banner" *ngIf="signals.length > 0 && !signalsDismissed && !loading">
+      <div class="signals-header">
+        <span class="signals-title">Signals</span>
+        <button class="signals-dismiss" (click)="dismissSignals()">&times;</button>
+      </div>
+      <div class="signals-scroll">
+        <div *ngFor="let sig of signals" class="signal-card" [ngClass]="getSignalClass(sig.signal)">
+          <div class="signal-top">
+            <span class="signal-symbol">{{ sig.symbol }}</span>
+            <span class="signal-type">{{ sig.signal }}</span>
+          </div>
+          <div class="signal-reason">{{ sig.reason }}</div>
+          <div class="signal-bottom">
+            <span class="signal-confidence">{{ sig.confidence }}%</span>
+            <span class="signal-regime" *ngIf="sig.regime !== 'neutral'">{{ sig.regime }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <div *ngIf="!loading">
       <!-- Portfolio Summary Bar -->
@@ -1008,6 +1034,97 @@
     </div>
   </div>
 
+  <!-- ═══ Market Intel Tab ═══ -->
+  <div
+    id="panel-intel"
+    role="tabpanel"
+    aria-labelledby="tab-intel"
+    [attr.tabindex]="0"
+    *ngIf="activeTab === 'intel'"
+    class="section tab-panel"
+  >
+    <!-- Sector Heatmap -->
+    <div class="intel-section">
+      <h3 class="intel-title">Sector Performance</h3>
+      <div *ngIf="loadingSectors" class="loading">Loading sectors...</div>
+      <div *ngIf="!loadingSectors" class="sector-heatmap">
+        <div *ngFor="let s of sectorData"
+             class="sector-cell"
+             [style.background]="s.changePercent >= 0
+               ? 'linear-gradient(135deg, rgba(34,197,94,' + (0.08 + Math.min(Math.abs(s.changePercent) * 0.12, 0.35)) + '), rgba(34,197,94,' + (0.03 + Math.min(Math.abs(s.changePercent) * 0.06, 0.15)) + '))'
+               : 'linear-gradient(135deg, rgba(239,68,68,' + (0.08 + Math.min(Math.abs(s.changePercent) * 0.12, 0.35)) + '), rgba(239,68,68,' + (0.03 + Math.min(Math.abs(s.changePercent) * 0.06, 0.15)) + '))'">
+          <span class="sector-name">{{ s.name }}</span>
+          <span class="sector-pct" [class.positive]="s.changePercent >= 0" [class.negative]="s.changePercent < 0">
+            {{ s.changePercent >= 0 ? '+' : '' }}{{ s.changePercent | number:'1.2-2' }}%
+          </span>
+          <span class="sector-price">{{ s.price | number:'1.2-2' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sentiment Overview -->
+    <div class="intel-section">
+      <h3 class="intel-title">News Sentiment</h3>
+      <div *ngIf="loadingSentiment" class="loading">Analyzing sentiment...</div>
+      <div *ngIf="!loadingSentiment && sentimentData.length === 0" class="no-data">No sentiment data available.</div>
+      <div *ngIf="!loadingSentiment && sentimentData.length > 0" class="sentiment-list">
+        <div *ngFor="let s of sentimentData" class="sentiment-row">
+          <div class="sentiment-header">
+            <span class="sentiment-symbol">{{ s.symbol }}</span>
+            <span class="sentiment-label" [style.color]="getSentimentColor(s.score)">{{ s.label }}</span>
+            <span class="sentiment-score" [style.color]="getSentimentColor(s.score)">{{ s.score > 0 ? '+' : '' }}{{ s.score }}</span>
+          </div>
+          <div class="sentiment-bar-container">
+            <div class="sentiment-bar-fill positive-fill" [style.width.%]="getSentimentBarWidth(s, 'positive')"></div>
+            <div class="sentiment-bar-fill neutral-fill" [style.width.%]="getSentimentBarWidth(s, 'neutral')"></div>
+            <div class="sentiment-bar-fill negative-fill" [style.width.%]="getSentimentBarWidth(s, 'negative')"></div>
+          </div>
+          <div class="sentiment-counts">
+            <span class="count-positive">{{ s.positive }} pos</span>
+            <span class="count-neutral">{{ s.neutral }} neu</span>
+            <span class="count-negative">{{ s.negative }} neg</span>
+            <span class="count-total">{{ s.totalArticles }} articles</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Insider Trading -->
+    <div class="intel-section">
+      <h3 class="intel-title">Insider Activity</h3>
+      <div *ngIf="loadingInsiders" class="loading">Loading insider data...</div>
+      <div *ngIf="!loadingInsiders && insiderTrades.length === 0" class="no-data">No recent insider activity found.</div>
+      <div *ngIf="!loadingInsiders && insiderTrades.length > 0" class="insider-table-wrap">
+        <table class="insider-table">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Insider</th>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Shares</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let t of insiderTrades" [class.insider-buy]="t.type === 'Buy'" [class.insider-sell]="t.type === 'Sell'">
+              <td class="insider-symbol">{{ t.symbol }}</td>
+              <td class="insider-name">{{ t.name }}</td>
+              <td>{{ t.date }}</td>
+              <td>
+                <span class="insider-type" [class.type-buy]="t.type === 'Buy'" [class.type-sell]="t.type === 'Sell'" [class.type-award]="t.type === 'Award'">
+                  {{ t.type }}
+                </span>
+              </td>
+              <td>{{ t.shares | number }}</td>
+              <td>{{ t.value > 0 ? ('$' + (t.value | number:'1.0-0')) : '--' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- Mobile Bottom Tab Bar -->
   <div class="mobile-bottom-tabs">
     <button *ngFor="let tab of tabs" class="bottom-tab" [class.bottom-tab-active]="activeTab === tab.id" (click)="selectTab(tab.id)">
@@ -1016,7 +1133,8 @@
       <svg *ngIf="tab.id === 'recommendations'" class="bottom-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>
       <svg *ngIf="tab.id === 'earnings'" class="bottom-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20"/><path d="M9 21V9"/></svg>
       <svg *ngIf="tab.id === 'news'" class="bottom-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="M2 10h20"/><path d="M10 4v16"/></svg>
-      <span class="bottom-tab-label">{{ tab.id === 'watchlist' ? 'Stocks' : tab.id === 'options' ? 'Options' : tab.id === 'recommendations' ? 'AI Picks' : tab.id === 'earnings' ? 'Earnings' : 'News' }}</span>
+      <svg *ngIf="tab.id === 'intel'" class="bottom-tab-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h4l3-9 4 18 3-9h4"/><circle cx="12" cy="12" r="1"/></svg>
+      <span class="bottom-tab-label">{{ tab.id === 'watchlist' ? 'Stocks' : tab.id === 'options' ? 'Options' : tab.id === 'recommendations' ? 'AI Picks' : tab.id === 'earnings' ? 'Earnings' : tab.id === 'intel' ? 'Intel' : 'News' }}</span>
     </button>
   </div>
 

@@ -310,4 +310,48 @@ export class StockService {
   addManualEarning(symbol: string, date: string): Observable<any> {
     return this.http.post<any>(`${this.apiUrl}/earnings/manual`, { symbol, date }, { headers: this.getAuthHeaders() });
   }
+
+  // Market Intelligence
+  getSectorPerformance(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/market/sectors`).pipe(
+      catchError(() => of([]))
+    );
+  }
+
+  getInsiderTrades(symbols: string[]): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/market/insider-trades`, {
+      params: { symbols: symbols.join(',') },
+      headers: this.getAuthHeaders()
+    }).pipe(catchError(() => of([])));
+  }
+
+  getSentimentData(symbols: string[]): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/market/sentiment`, {
+      params: { symbols: symbols.join(',') }
+    }).pipe(catchError(() => of([])));
+  }
+
+  // Market Conditions (regime + adjustments)
+  getMarketConditions(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/market/conditions`).pipe(
+      catchError(() => of({ regime: 'neutral', adjustments: {} }))
+    );
+  }
+
+  // Buy/Sell Signals
+  getSignals(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/signals`, { headers: this.getAuthHeaders() }).pipe(
+      catchError(() => of([]))
+    );
+  }
+
+  // Market Indices with Sparkline chart data
+  getMarketIndicesCharts(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/market-indices/charts`).pipe(
+      catchError(error => {
+        console.error('Error fetching market indices charts:', error);
+        return of([]);
+      })
+    );
+  }
 }

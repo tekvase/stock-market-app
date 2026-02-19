@@ -14,7 +14,7 @@ const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const { Server: SocketIO } = require('socket.io');
 const { db, pool } = require('./database');
-const { initializeScheduler, refreshAllStocks, refreshEarnings, refreshAiDailyPicks } = require('./scheduler');
+const { initializeScheduler, refreshAllStocks, refreshEarnings, refreshAiDailyPicks, getMarketConditions } = require('./scheduler');
 const { FinnhubWebSocketManager } = require('./websocket-manager');
 
 // Email transporter
@@ -655,6 +655,275 @@ app.get('/api/scheduler/status', (req, res) => {
     res.json(scheduler.getStatus());
   } else {
     res.status(500).json({ error: 'Scheduler not initialized' });
+  }
+});
+
+// ─── Market Intelligence Endpoints ───
+
+const SECTOR_ETFS = [
+  { symbol: 'XLK', name: 'Technology' },
+  { symbol: 'XLF', name: 'Financials' },
+  { symbol: 'XLV', name: 'Healthcare' },
+  { symbol: 'XLE', name: 'Energy' },
+  { symbol: 'XLY', name: 'Consumer Disc.' },
+  { symbol: 'XLP', name: 'Consumer Staples' },
+  { symbol: 'XLI', name: 'Industrials' },
+  { symbol: 'XLU', name: 'Utilities' },
+  { symbol: 'XLRE', name: 'Real Estate' },
+  { symbol: 'XLC', name: 'Communication' },
+  { symbol: 'XLB', name: 'Materials' }
+];
+
+app.get('/api/market/sectors', async (req, res) => {
+  try {
+    const results = await Promise.all(
+      SECTOR_ETFS.map(async (etf) => {
+        try {
+          await waitForSlot();
+          const quote = await finnhubRequest('/quote', { symbol: etf.symbol });
+          return {
+            symbol: etf.symbol,
+            name: etf.name,
+            price: quote.c || 0,
+            change: quote.d || 0,
+            changePercent: quote.dp || 0
+          };
+        } catch {
+          return { symbol: etf.symbol, name: etf.name, price: 0, change: 0, changePercent: 0 };
+        }
+      })
+    );
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching sector data:', error);
+    res.status(500).json({ error: 'Failed to fetch sector data' });
+  }
+});
+
+app.get('/api/market/insider-trades', authenticateToken, async (req, res) => {
+  try {
+    const symbols = (req.query.symbols || '').split(',').filter(Boolean).map(s => s.trim().toUpperCase());
+    if (symbols.length === 0) return res.json([]);
+
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+    const cutoff = ninetyDaysAgo.toISOString().split('T')[0];
+
+    const allTrades = [];
+    for (const symbol of symbols.slice(0, 10)) {
+      try {
+        await waitForSlot();
+        const data = await finnhubRequest('/stock/insider-transactions', { symbol });
+        if (data.data) {
+          const filtered = data.data.filter(t =>
+            !t.isDerivative &&
+            ['P', 'S', 'A'].includes(t.transactionCode) &&
+            t.transactionDate >= cutoff &&
+            t.share !== 0
+          );
+          for (const t of filtered) {
+            allTrades.push({
+              symbol,
+              name: t.name,
+              date: t.transactionDate,
+              type: t.transactionCode === 'P' ? 'Buy' : t.transactionCode === 'S' ? 'Sell' : 'Award',
+              shares: Math.abs(t.change || t.share || 0),
+              price: t.transactionPrice || 0,
+              value: Math.abs((t.change || t.share || 0) * (t.transactionPrice || 0))
+            });
+          }
+        }
+      } catch { /* skip symbol on error */ }
+    }
+
+    allTrades.sort((a, b) => b.date.localeCompare(a.date));
+    res.json(allTrades.slice(0, 30));
+  } catch (error) {
+    console.error('Error fetching insider trades:', error);
+    res.status(500).json({ error: 'Failed to fetch insider trades' });
+  }
+});
+
+app.get('/api/market/sentiment', async (req, res) => {
+  try {
+    const symbols = (req.query.symbols || '').split(',').filter(Boolean).map(s => s.trim().toUpperCase());
+    if (symbols.length === 0) return res.json([]);
+
+    const from = new Date();
+    from.setDate(from.getDate() - 7);
+    const fromStr = from.toISOString().split('T')[0];
+    const toStr = new Date().toISOString().split('T')[0];
+
+    const results = [];
+    for (const symbol of symbols.slice(0, 10)) {
+      try {
+        await waitForSlot();
+        const news = await finnhubRequest('/company-news', { symbol, from: fromStr, to: toStr });
+        let positive = 0, negative = 0, neutral = 0;
+        for (const article of (news || []).slice(0, 20)) {
+          const { sentiment } = analyzeSentiment(article.headline, article.summary);
+          if (sentiment === 'positive') positive++;
+          else if (sentiment === 'negative') negative++;
+          else neutral++;
+        }
+        const total = positive + negative + neutral;
+        const score = total > 0 ? Math.round(((positive - negative) / total) * 100) : 0;
+        results.push({
+          symbol,
+          score,
+          positive,
+          negative,
+          neutral,
+          totalArticles: total,
+          label: score > 20 ? 'Bullish' : score < -20 ? 'Bearish' : 'Neutral'
+        });
+      } catch {
+        results.push({ symbol, score: 0, positive: 0, negative: 0, neutral: 0, totalArticles: 0, label: 'N/A' });
+      }
+    }
+    res.json(results);
+  } catch (error) {
+    console.error('Error fetching sentiment:', error);
+    res.status(500).json({ error: 'Failed to fetch sentiment' });
+  }
+});
+
+// ─── Market Conditions Endpoint ───
+app.get('/api/market/conditions', async (req, res) => {
+  try {
+    const conditions = await getMarketConditions();
+    res.json(conditions);
+  } catch (error) {
+    console.error('Error fetching market conditions:', error);
+    res.status(500).json({ error: 'Failed to fetch market conditions' });
+  }
+});
+
+// ─── Buy/Sell Signals Endpoint ───
+app.get('/api/signals', authenticateToken, async (req, res) => {
+  try {
+    // Get user's watchlist symbols
+    const trades = await db.getUserStockTrades(req.user.userId);
+    const symbols = trades.map(t => t.symbol);
+    if (symbols.length === 0) return res.json([]);
+
+    const today = new Date().toISOString().split('T')[0];
+    const conditions = await getMarketConditions();
+    const signals = [];
+
+    for (const symbol of symbols) {
+      try {
+        // Check if AI pick exists for today
+        const pickResult = await pool.query(
+          'SELECT * FROM ai_daily_picks WHERE symbol = $1 AND pick_date = $2',
+          [symbol, today]
+        );
+        const pick = pickResult.rows[0];
+        if (!pick) continue;
+
+        const aiScore = parseInt(pick.ai_score);
+        const consensus = pick.consensus;
+        const changePercent = parseFloat(pick.change_percent) || 0;
+        const sentimentLabel = pick.sentiment_label;
+        let signal = null;
+        let confidence = 0;
+        let reason = '';
+
+        // Strong Buy signal
+        if (aiScore > 80 && (consensus === 'Strong Buy')) {
+          signal = 'Strong Buy';
+          confidence = aiScore;
+          reason = `AI Score ${aiScore}% with Strong Buy consensus from ${pick.total_analysts} analysts`;
+        }
+        // Buy signal
+        else if (aiScore > 70 && (consensus === 'Buy' || consensus === 'Strong Buy')) {
+          signal = 'Buy';
+          confidence = aiScore;
+          reason = `AI Score ${aiScore}% with ${consensus} consensus`;
+        }
+        // Momentum Buy
+        else if (changePercent > 3 && sentimentLabel === 'Bullish') {
+          signal = 'Momentum Buy';
+          confidence = Math.min(aiScore + 10, 100);
+          reason = `Up ${changePercent.toFixed(1)}% today with bullish sentiment`;
+        }
+        // Sell signal
+        else if (aiScore < 35 && (consensus === 'Sell' || consensus === 'Strong Sell')) {
+          signal = 'Sell';
+          confidence = 100 - aiScore;
+          reason = `Low AI Score ${aiScore}% with ${consensus} consensus`;
+        }
+        // Sell Alert
+        else if (changePercent < -5 && sentimentLabel === 'Bearish') {
+          signal = 'Sell Alert';
+          confidence = Math.min(100 - aiScore + 10, 100);
+          reason = `Down ${Math.abs(changePercent).toFixed(1)}% today with bearish sentiment`;
+        }
+
+        if (signal) {
+          signals.push({
+            symbol,
+            signal,
+            confidence,
+            reason,
+            regime: conditions.regime,
+            price: parseFloat(pick.price) || 0,
+            changePercent
+          });
+        }
+      } catch (err) {
+        // skip symbol on error
+      }
+    }
+
+    // Sort by confidence descending
+    signals.sort((a, b) => b.confidence - a.confidence);
+    res.json(signals);
+  } catch (error) {
+    console.error('Error fetching signals:', error);
+    res.status(500).json({ error: 'Failed to fetch signals' });
+  }
+});
+
+// ─── Market Indices with Sparkline Charts ───
+app.get('/api/market-indices/charts', async (req, res) => {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
+
+    const indices = await Promise.all(
+      MARKET_INDICES.map(async (index) => {
+        try {
+          const [quote, candles] = await Promise.all([
+            finnhubRequest('/quote', { symbol: index.symbol }),
+            finnhubRequest('/stock/candle', { symbol: index.symbol, resolution: 'D', from: thirtyDaysAgo, to: now }).catch(() => null)
+          ]);
+
+          let candleData = [];
+          if (candles && candles.s !== 'no_data' && candles.c && candles.t) {
+            candleData = candles.t.map((t, i) => ({
+              date: new Date(t * 1000).toISOString().split('T')[0],
+              close: candles.c[i]
+            }));
+          }
+
+          return {
+            symbol: index.symbol,
+            name: index.name,
+            price: quote.c || 0,
+            change: quote.d || 0,
+            changePercent: quote.dp || 0,
+            candles: candleData
+          };
+        } catch (err) {
+          return { symbol: index.symbol, name: index.name, price: 0, change: 0, changePercent: 0, candles: [] };
+        }
+      })
+    );
+    res.json(indices);
+  } catch (error) {
+    console.error('Error fetching market indices charts:', error);
+    res.status(500).json({ error: 'Failed to fetch market indices charts' });
   }
 });
 

@@ -333,7 +333,82 @@ function analyzeBatchSentiment(newsArticles) {
   };
 }
 
-function calculateAiScore(buyRatio, changePercent, sentimentScore, epsGrowth, revenueGrowth, week13Return) {
+// Market conditions assessment for AI score adjustments
+async function getMarketConditions() {
+  try {
+    const [spy, qqq, dia, iwm] = await Promise.all([
+      batchFinnhubRequest('/quote', { symbol: 'SPY' }).catch(() => null),
+      batchFinnhubRequest('/quote', { symbol: 'QQQ' }).catch(() => null),
+      batchFinnhubRequest('/quote', { symbol: 'DIA' }).catch(() => null),
+      batchFinnhubRequest('/quote', { symbol: 'IWM' }).catch(() => null)
+    ]);
+
+    const spyChange = spy?.dp || 0;
+    const qqqChange = qqq?.dp || 0;
+    const diaChange = dia?.dp || 0;
+    const iwmChange = iwm?.dp || 0;
+
+    let regime = 'neutral';
+    let growthBoost = 0;
+    let smallCapBoost = 0;
+    let defensiveBoost = 0;
+    let confidenceMultiplier = 1.0;
+
+    // NASDAQ down heavily → risk-off, reduce growth
+    if (qqqChange < -1.5) {
+      regime = 'risk-off';
+      growthBoost = -15;
+      defensiveBoost = 10;
+    } else if (qqqChange < -0.5) {
+      growthBoost = -8;
+      defensiveBoost = 5;
+    } else if (qqqChange > 1.0) {
+      growthBoost = 10;
+      regime = 'risk-on';
+    }
+
+    // Russell 2000 rising → boost small-cap
+    if (iwmChange > 1.0) {
+      smallCapBoost = 10;
+    } else if (iwmChange < -1.0) {
+      smallCapBoost = -5;
+    }
+
+    // S&P confidence
+    if (spyChange > 0.5) {
+      confidenceMultiplier = 1.10;
+      if (regime === 'neutral') regime = 'risk-on';
+    } else if (spyChange < -1.0) {
+      confidenceMultiplier = 0.90;
+      if (regime === 'neutral') regime = 'risk-off';
+    }
+
+    // Dow stable but NASDAQ falling → rotation to defensives
+    if (Math.abs(diaChange) < 0.3 && qqqChange < -1.0) {
+      regime = 'rotation';
+      defensiveBoost = 15;
+      growthBoost = -12;
+    }
+
+    return {
+      spyChange, qqqChange, diaChange, iwmChange,
+      regime,
+      adjustments: { growthBoost, smallCapBoost, defensiveBoost, confidenceMultiplier }
+    };
+  } catch (error) {
+    console.error('Error fetching market conditions:', error.message);
+    return {
+      spyChange: 0, qqqChange: 0, diaChange: 0, iwmChange: 0,
+      regime: 'neutral',
+      adjustments: { growthBoost: 0, smallCapBoost: 0, defensiveBoost: 0, confidenceMultiplier: 1.0 }
+    };
+  }
+}
+
+const GROWTH_SECTORS = ['Technology', 'Communication Services', 'Consumer Discretionary'];
+const DEFENSIVE_SECTORS = ['Utilities', 'Consumer Staples', 'Healthcare', 'Real Estate'];
+
+function calculateAiScore(buyRatio, changePercent, sentimentScore, epsGrowth, revenueGrowth, week13Return, marketConditions, stock) {
   // 30% Analyst Consensus
   const analystComponent = buyRatio; // 0-100
 
@@ -353,10 +428,33 @@ function calculateAiScore(buyRatio, changePercent, sentimentScore, epsGrowth, re
   // 15% News Sentiment
   const sentimentComponent = ((sentimentScore + 1) / 2) * 100;
 
-  const composite = Math.round(
+  let composite = Math.round(
     (analystComponent * 0.30) + (growthComponent * 0.20) + (trendComponent * 0.20) +
     (momentumComponent * 0.15) + (sentimentComponent * 0.15)
   );
+
+  // Apply market condition adjustments if available
+  if (marketConditions && marketConditions.adjustments) {
+    const adj = marketConditions.adjustments;
+    const sector = stock?.sector || '';
+    const marketCap = stock?.market_cap || 0;
+
+    // Growth sector adjustment
+    if (GROWTH_SECTORS.some(s => sector.toLowerCase().includes(s.toLowerCase()))) {
+      composite += adj.growthBoost;
+    }
+    // Defensive sector adjustment
+    if (DEFENSIVE_SECTORS.some(s => sector.toLowerCase().includes(s.toLowerCase()))) {
+      composite += adj.defensiveBoost;
+    }
+    // Small-cap boost (market cap < $2B = 2000M in Finnhub units)
+    if (marketCap > 0 && marketCap < 2000) {
+      composite += adj.smallCapBoost;
+    }
+    // Confidence multiplier
+    composite = Math.round(composite * adj.confidenceMultiplier);
+  }
+
   return Math.max(0, Math.min(100, composite));
 }
 
@@ -527,6 +625,11 @@ async function refreshAiDailyPicks() {
     console.log('🤖 Starting AI Daily Picks batch processing...');
     const startTime = Date.now();
 
+    // Fetch market conditions for score adjustments
+    const marketConditions = await getMarketConditions();
+    addSchedulerLog('info', `Market regime: ${marketConditions.regime} (SPY ${marketConditions.spyChange > 0 ? '+' : ''}${marketConditions.spyChange.toFixed(2)}%, QQQ ${marketConditions.qqqChange > 0 ? '+' : ''}${marketConditions.qqqChange.toFixed(2)}%)`);
+    console.log(`📊 Market conditions: regime=${marketConditions.regime}, SPY=${marketConditions.spyChange}%, QQQ=${marketConditions.qqqChange}%, DIA=${marketConditions.diaChange}%, IWM=${marketConditions.iwmChange}%`);
+
     // PHASE 1: Fetch all US symbols
     console.log('📡 Phase 1: Fetching all US stock symbols...');
     const allSymbols = await batchFinnhubRequest('/stock/symbol', { exchange: 'US' });
@@ -657,7 +760,7 @@ async function refreshAiDailyPicks() {
     // Calculate preliminary AI scores
     for (const pick of filtered) {
       pick.momentum_score = ((Math.max(-5, Math.min(5, pick.change_percent || 0)) + 5) / 10) * 100;
-      pick.ai_score = calculateAiScore(pick.buy_ratio, pick.change_percent, 0, pick.eps_growth, pick.revenue_growth, pick.week_13_return);
+      pick.ai_score = calculateAiScore(pick.buy_ratio, pick.change_percent, 0, pick.eps_growth, pick.revenue_growth, pick.week_13_return, marketConditions, pick);
     }
 
     // Sort by preliminary score to pick top 200 for news analysis
@@ -700,9 +803,10 @@ async function refreshAiDailyPicks() {
     filtered = filtered.filter(s => s.sentiment_score >= -0.3);
     console.log(`  After sentiment filter: ${filtered.length} stocks`);
 
-    // Recalculate final AI scores with all factors
+    // Recalculate final AI scores with all factors (including market conditions)
     for (const pick of filtered) {
-      pick.ai_score = calculateAiScore(pick.buy_ratio, pick.change_percent, pick.sentiment_score, pick.eps_growth, pick.revenue_growth, pick.week_13_return);
+      pick.ai_score = calculateAiScore(pick.buy_ratio, pick.change_percent, pick.sentiment_score, pick.eps_growth, pick.revenue_growth, pick.week_13_return, marketConditions, pick);
+      pick.market_regime = marketConditions.regime;
       pick.category = assignCategory(pick);
       pick.reason_text = generateReasonText(pick);
       pick.pick_date = today;
@@ -835,4 +939,4 @@ function initializeScheduler() {
   };
 }
 
-module.exports = { initializeScheduler, refreshAllStocks, refreshEarnings, refreshAiDailyPicks };
+module.exports = { initializeScheduler, refreshAllStocks, refreshEarnings, refreshAiDailyPicks, getMarketConditions };

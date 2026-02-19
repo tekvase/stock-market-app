@@ -686,7 +686,8 @@ const db = {
       'revenue_growth NUMERIC(10, 4)',
       'pe_ratio NUMERIC(10, 4)',
       'week_13_return NUMERIC(10, 4)',
-      'above_50_ma BOOLEAN DEFAULT false'
+      'above_50_ma BOOLEAN DEFAULT false',
+      'market_regime VARCHAR(20)'
     ];
     for (const col of newCols) {
       try { await pool.query(`ALTER TABLE ai_daily_picks ADD COLUMN IF NOT EXISTS ${col}`); } catch(e) {}
@@ -714,7 +715,7 @@ const db = {
       const params = [];
       let paramIdx = 1;
       for (const item of batch) {
-        values.push(`($${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, NOW())`);
+        values.push(`($${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, $${paramIdx++}, NOW())`);
         params.push(
           item.symbol, item.name, item.sector, item.logo,
           item.price, item.change, item.change_percent,
@@ -727,11 +728,12 @@ const db = {
           item.eps_growth ?? null, item.revenue_growth ?? null,
           item.pe_ratio ?? null, item.week_13_return ?? null,
           item.above_50_ma || false,
+          item.market_regime || null,
           item.pick_date
         );
       }
       try {
-        const query = `INSERT INTO ai_daily_picks (symbol, name, sector, logo, price, change, change_percent, strong_buy, buy, hold, sell, strong_sell, buy_ratio, consensus, total_analysts, ai_score, sentiment_score, sentiment_label, momentum_score, reason_text, category, news_positive_count, news_negative_count, news_total_count, avg_volume, market_cap, eps_growth, revenue_growth, pe_ratio, week_13_return, above_50_ma, pick_date, updated_at) VALUES ${values.join(', ')} ON CONFLICT (symbol, pick_date) DO UPDATE SET name = EXCLUDED.name, sector = EXCLUDED.sector, logo = EXCLUDED.logo, price = EXCLUDED.price, change = EXCLUDED.change, change_percent = EXCLUDED.change_percent, strong_buy = EXCLUDED.strong_buy, buy = EXCLUDED.buy, hold = EXCLUDED.hold, sell = EXCLUDED.sell, strong_sell = EXCLUDED.strong_sell, buy_ratio = EXCLUDED.buy_ratio, consensus = EXCLUDED.consensus, total_analysts = EXCLUDED.total_analysts, ai_score = EXCLUDED.ai_score, sentiment_score = EXCLUDED.sentiment_score, sentiment_label = EXCLUDED.sentiment_label, momentum_score = EXCLUDED.momentum_score, reason_text = EXCLUDED.reason_text, category = EXCLUDED.category, news_positive_count = EXCLUDED.news_positive_count, news_negative_count = EXCLUDED.news_negative_count, news_total_count = EXCLUDED.news_total_count, avg_volume = EXCLUDED.avg_volume, market_cap = EXCLUDED.market_cap, eps_growth = EXCLUDED.eps_growth, revenue_growth = EXCLUDED.revenue_growth, pe_ratio = EXCLUDED.pe_ratio, week_13_return = EXCLUDED.week_13_return, above_50_ma = EXCLUDED.above_50_ma, updated_at = NOW()`;
+        const query = `INSERT INTO ai_daily_picks (symbol, name, sector, logo, price, change, change_percent, strong_buy, buy, hold, sell, strong_sell, buy_ratio, consensus, total_analysts, ai_score, sentiment_score, sentiment_label, momentum_score, reason_text, category, news_positive_count, news_negative_count, news_total_count, avg_volume, market_cap, eps_growth, revenue_growth, pe_ratio, week_13_return, above_50_ma, market_regime, pick_date, updated_at) VALUES ${values.join(', ')} ON CONFLICT (symbol, pick_date) DO UPDATE SET name = EXCLUDED.name, sector = EXCLUDED.sector, logo = EXCLUDED.logo, price = EXCLUDED.price, change = EXCLUDED.change, change_percent = EXCLUDED.change_percent, strong_buy = EXCLUDED.strong_buy, buy = EXCLUDED.buy, hold = EXCLUDED.hold, sell = EXCLUDED.sell, strong_sell = EXCLUDED.strong_sell, buy_ratio = EXCLUDED.buy_ratio, consensus = EXCLUDED.consensus, total_analysts = EXCLUDED.total_analysts, ai_score = EXCLUDED.ai_score, sentiment_score = EXCLUDED.sentiment_score, sentiment_label = EXCLUDED.sentiment_label, momentum_score = EXCLUDED.momentum_score, reason_text = EXCLUDED.reason_text, category = EXCLUDED.category, news_positive_count = EXCLUDED.news_positive_count, news_negative_count = EXCLUDED.news_negative_count, news_total_count = EXCLUDED.news_total_count, avg_volume = EXCLUDED.avg_volume, market_cap = EXCLUDED.market_cap, eps_growth = EXCLUDED.eps_growth, revenue_growth = EXCLUDED.revenue_growth, pe_ratio = EXCLUDED.pe_ratio, week_13_return = EXCLUDED.week_13_return, above_50_ma = EXCLUDED.above_50_ma, market_regime = EXCLUDED.market_regime, updated_at = NOW()`;
         await pool.query(query, params);
         inserted += batch.length;
       } catch (err) {
