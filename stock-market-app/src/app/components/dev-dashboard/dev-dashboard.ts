@@ -14,6 +14,7 @@ export class DevDashboard implements OnInit, OnDestroy {
   status: any = null;
   loading = true;
   error = '';
+  debugResponse = '';
   triggerMessage = '';
   triggerIsError = false;
   private refreshSub?: Subscription;
@@ -41,13 +42,16 @@ export class DevDashboard implements OnInit, OnDestroy {
     this.error = '';
     this.stockService.getDevStatus().subscribe({
       next: (data) => {
+        console.log('Dev status response:', JSON.stringify(data));
         this.status = data;
         this.loading = false;
         this.error = '';
+        this.debugResponse = '';
       },
       error: (err) => {
         console.error('Dev status error:', err);
         this.loading = false;
+        this.debugResponse = `HTTP ${err.status}: ${JSON.stringify(err.error || err.message)}`;
         if (err.status === 403) {
           this.error = 'Admin access required. Make sure ADMIN_EMAILS is configured on the server.';
         } else if (err.status === 500) {
@@ -55,7 +59,7 @@ export class DevDashboard implements OnInit, OnDestroy {
         } else if (err.status === 0) {
           this.error = 'Cannot reach server — CORS or network issue.';
         } else {
-          this.error = `Failed to load status (${err.status || 'unknown'})`;
+          this.error = `Failed to load status (HTTP ${err.status || 'unknown'})`;
         }
       }
     });

@@ -15,19 +15,19 @@
       <h3 class="card-title">Server</h3>
       <div class="stat-row">
         <span class="stat-label">Uptime</span>
-        <span class="stat-value">{{ status.server.uptimeFormatted }}</span>
+        <span class="stat-value">{{ status.server?.uptimeFormatted || '--' }}</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">Memory</span>
-        <span class="stat-value">{{ status.server.memoryUsage }}</span>
+        <span class="stat-value">{{ status.server?.memoryUsage || '--' }}</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">Node</span>
-        <span class="stat-value">{{ status.server.nodeVersion }}</span>
+        <span class="stat-value">{{ status.server?.nodeVersion || '--' }}</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">Environment</span>
-        <span class="stat-value env-badge">{{ status.server.environment }}</span>
+        <span class="stat-value env-badge">{{ status.server?.environment || '--' }}</span>
       </div>
     </div>
 
@@ -36,7 +36,7 @@
       <h3 class="card-title">APIs</h3>
       <div class="stat-row" *ngFor="let api of ['finnhub', 'database', 'websocket']">
         <span class="stat-label">{{ api | titlecase }}</span>
-        <span class="stat-value api-badge" [ngClass]="getApiClass(status.apis[api])">{{ status.apis[api] }}</span>
+        <span class="stat-value api-badge" [ngClass]="getApiClass(status.apis?.[api] || 'unknown')">{{ status.apis?.[api] || 'unknown' }}</span>
       </div>
     </div>
 
@@ -45,28 +45,28 @@
       <h3 class="card-title">Database</h3>
       <div class="stat-row">
         <span class="stat-label">Users</span>
-        <span class="stat-value">{{ status.database.users }}</span>
+        <span class="stat-value">{{ status.database?.users ?? '--' }}</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">Trades</span>
-        <span class="stat-value">{{ status.database.trades }}</span>
+        <span class="stat-value">{{ status.database?.trades ?? '--' }}</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">Earnings</span>
-        <span class="stat-value">{{ status.database.earnings }}</span>
+        <span class="stat-value">{{ status.database?.earnings ?? '--' }}</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">AI Picks Today</span>
-        <span class="stat-value">{{ status.database.aiPicksToday }}</span>
+        <span class="stat-value">{{ status.database?.aiPicksToday ?? '--' }}</span>
       </div>
       <div class="stat-row">
         <span class="stat-label">Option Trades</span>
-        <span class="stat-value">{{ status.database.optionTrades }}</span>
+        <span class="stat-value">{{ status.database?.optionTrades ?? '--' }}</span>
       </div>
     </div>
 
     <!-- Scheduler Jobs -->
-    <div class="dev-card wide-card">
+    <div class="dev-card wide-card" *ngIf="status.scheduler?.jobs">
       <h3 class="card-title">Scheduled Jobs</h3>
       <table class="jobs-table">
         <thead>
@@ -81,24 +81,26 @@
         </thead>
         <tbody>
           <tr *ngFor="let jobKey of ['dailyRefresh', 'monthlyEarnings', 'aiDailyPicks', 'marketHoursUpdates']">
-            <td class="job-name">{{ status.scheduler.jobs[jobKey].description }}</td>
-            <td class="job-cron"><code>{{ status.scheduler.jobs[jobKey].cron }}</code></td>
-            <td>
-              <span class="scheduled-badge" [class.active]="status.scheduler.jobs[jobKey].scheduled">
-                {{ status.scheduler.jobs[jobKey].scheduled ? 'Active' : 'Inactive' }}
-              </span>
-            </td>
-            <td>
-              <span [ngClass]="getStatusClass(status.scheduler.jobs[jobKey].lastStatus)">
-                {{ formatTime(status.scheduler.jobs[jobKey].lastRun) }}
-              </span>
-            </td>
-            <td>{{ formatDuration(status.scheduler.jobs[jobKey].lastDuration) }}</td>
-            <td>
-              <button *ngIf="jobKey === 'aiDailyPicks'" class="trigger-btn" (click)="triggerJob('ai-picks')">Run</button>
-              <button *ngIf="jobKey === 'monthlyEarnings'" class="trigger-btn" (click)="triggerJob('earnings')">Run</button>
-              <button *ngIf="jobKey === 'dailyRefresh'" class="trigger-btn" (click)="triggerJob('stocks')">Run</button>
-            </td>
+            <ng-container *ngIf="status.scheduler.jobs[jobKey] as job">
+              <td class="job-name">{{ job.description }}</td>
+              <td class="job-cron"><code>{{ job.cron }}</code></td>
+              <td>
+                <span class="scheduled-badge" [class.active]="job.scheduled">
+                  {{ job.scheduled ? 'Active' : 'Inactive' }}
+                </span>
+              </td>
+              <td>
+                <span [ngClass]="getStatusClass(job.lastStatus)">
+                  {{ formatTime(job.lastRun) }}
+                </span>
+              </td>
+              <td>{{ formatDuration(job.lastDuration) }}</td>
+              <td>
+                <button *ngIf="jobKey === 'aiDailyPicks'" class="trigger-btn" (click)="triggerJob('ai-picks')">Run</button>
+                <button *ngIf="jobKey === 'monthlyEarnings'" class="trigger-btn" (click)="triggerJob('earnings')">Run</button>
+                <button *ngIf="jobKey === 'dailyRefresh'" class="trigger-btn" (click)="triggerJob('stocks')">Run</button>
+              </td>
+            </ng-container>
           </tr>
         </tbody>
       </table>
@@ -106,7 +108,7 @@
     </div>
 
     <!-- Recent Logs -->
-    <div class="dev-card wide-card">
+    <div class="dev-card wide-card" *ngIf="status.scheduler">
       <h3 class="card-title">Scheduler Logs</h3>
       <div class="logs-container" *ngIf="status.scheduler.logs?.length > 0">
         <div *ngFor="let log of status.scheduler.logs" class="log-entry" [ngClass]="'log-' + log.level">
@@ -118,5 +120,10 @@
       <div *ngIf="!status.scheduler.logs?.length" class="no-logs">No logs yet. Logs appear after scheduled jobs run.</div>
     </div>
 
+  </div>
+
+  <!-- Debug: raw response -->
+  <div *ngIf="debugResponse" class="dev-error" style="margin-top: 16px; font-size: 12px; word-break: break-all;">
+    <strong>Debug:</strong> {{ debugResponse }}
   </div>
 </div>
