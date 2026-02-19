@@ -568,6 +568,43 @@ function getTimeAgo(timestamp) {
   return new Date(timestamp * 1000).toLocaleDateString();
 }
 
+// Market indices endpoint (S&P 500, Nasdaq, Dow Jones via ETF proxies)
+const MARKET_INDICES = [
+  { symbol: 'SPY', name: 'S&P 500', etf: true },
+  { symbol: 'QQQ', name: 'Nasdaq', etf: true },
+  { symbol: 'DIA', name: 'Dow Jones', etf: true },
+  { symbol: 'IWM', name: 'Russell 2000', etf: true }
+];
+
+app.get('/api/market-indices', async (req, res) => {
+  try {
+    const indices = await Promise.all(
+      MARKET_INDICES.map(async (index) => {
+        try {
+          const quote = await finnhubRequest('/quote', { symbol: index.symbol });
+          return {
+            symbol: index.symbol,
+            name: index.name,
+            price: quote.c || 0,
+            change: quote.d || 0,
+            changePercent: quote.dp || 0,
+            high: quote.h || 0,
+            low: quote.l || 0,
+            open: quote.o || 0,
+            previousClose: quote.pc || 0
+          };
+        } catch (err) {
+          return { symbol: index.symbol, name: index.name, price: 0, change: 0, changePercent: 0 };
+        }
+      })
+    );
+    res.json(indices);
+  } catch (error) {
+    console.error('Error fetching market indices:', error);
+    res.status(500).json({ error: 'Failed to fetch market indices' });
+  }
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({

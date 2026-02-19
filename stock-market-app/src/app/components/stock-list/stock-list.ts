@@ -87,6 +87,10 @@ export class StockList implements OnInit, OnDestroy {
   showAnalysisPopup = false;
   analysisError = '';
 
+  // Market Indices
+  marketIndices: any[] = [];
+  loadingIndices = true;
+
   // AI Daily Picks
   dailyPicks: any[] = [];
   loadingPicks = false;
@@ -258,6 +262,7 @@ export class StockList implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.loadMarketIndices();
     this.loadUserTrades();
     this.loadMonthlyEarnings();
     this.loadNews();
@@ -275,6 +280,22 @@ export class StockList implements OnInit, OnDestroy {
     if (this.livePriceSubscription) {
       this.livePriceSubscription.unsubscribe();
     }
+  }
+
+  loadMarketIndices(): void {
+    this.loadingIndices = true;
+    this.stockService.getMarketIndices().subscribe({
+      next: (data) => {
+        this.marketIndices = data;
+        this.loadingIndices = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.marketIndices = [];
+        this.loadingIndices = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   startLivePriceUpdates(): void {

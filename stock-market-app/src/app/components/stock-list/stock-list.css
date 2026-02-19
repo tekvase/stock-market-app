@@ -58,6 +58,93 @@
   background: var(--accent-red-border);
 }
 
+/* Market Indices Banner */
+.market-indices-bar {
+  display: flex;
+  gap: 0;
+  padding: 0;
+  margin-bottom: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 10px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.market-indices-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.index-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  white-space: nowrap;
+  border-right: 1px solid var(--border-primary);
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.index-item:last-child {
+  border-right: none;
+}
+
+.index-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.index-price {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.index-change {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.index-change.positive {
+  color: var(--accent-green);
+}
+
+.index-change.negative {
+  color: var(--accent-red);
+}
+
+@media (max-width: 768px) {
+  .market-indices-bar {
+    margin-bottom: 12px;
+    border-radius: 8px;
+  }
+
+  .index-item {
+    flex: 0 0 auto;
+    padding: 8px 14px;
+    gap: 6px;
+    min-width: fit-content;
+  }
+
+  .index-name {
+    font-size: 0.72rem;
+  }
+
+  .index-price {
+    font-size: 0.82rem;
+  }
+
+  .index-change {
+    font-size: 0.72rem;
+  }
+}
+
 /* Search Section */
 .search-section {
   margin-bottom: 20px;

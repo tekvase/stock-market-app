@@ -237,6 +237,15 @@ export class StockService {
     );
   }
 
+  getMarketIndices(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/market-indices`).pipe(
+      catchError(error => {
+        console.error('Error fetching market indices:', error);
+        return of([]);
+      })
+    );
+  }
+
   getEarningsAnalysis(symbol: string): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/earnings/analysis/${symbol}`).pipe(
       catchError(error => {
