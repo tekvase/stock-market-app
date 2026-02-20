@@ -2708,7 +2708,6 @@ tbody tr:hover .sticky-col {
   }
 
   .card-pl-detail {
-    grid-column: span 2;
     border-bottom: none;
   }
 
