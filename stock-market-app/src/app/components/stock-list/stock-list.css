@@ -2508,12 +2508,26 @@ tbody tr:hover .sticky-col {
     border-radius: 10px;
   }
 
-  /* Portfolio Summary */
+  /* Reorder: push summary below stock cards on mobile */
+  .watchlist-content-wrap {
+    display: flex;
+    flex-direction: column;
+  }
+
   .portfolio-summary {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
     padding: 12px 14px;
+    order: 2;
+  }
+
+  .table-container {
+    order: 1;
+  }
+
+  .mobile-stock-cards {
+    order: 1;
   }
 
   .summary-divider {
