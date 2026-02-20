@@ -170,6 +170,33 @@ export class StockDetail implements OnInit, OnDestroy {
     return (rec.strongBuy || 0) + (rec.buy || 0) + (rec.hold || 0) + (rec.sell || 0) + (rec.strongSell || 0);
   }
 
+  // Trade editing
+  saveBuyPrice(): void {
+    if (!this.tradeData || !this.tradeData.buyPrice) return;
+    this.stockService.updateUserTrade(this.symbol, this.tradeData.buyPrice).subscribe({
+      next: () => this.cdr.detectChanges(),
+      error: (err) => console.error('Error saving buy price:', err)
+    });
+  }
+
+  saveShares(): void {
+    if (!this.tradeData) return;
+    this.stockService.updateTradeFields(this.symbol, { shares: this.tradeData.shares || 0 }).subscribe({
+      next: () => this.cdr.detectChanges(),
+      error: (err) => console.error('Error saving shares:', err)
+    });
+  }
+
+  getTradePL(): number {
+    if (!this.tradeData || !this.stock || !this.tradeData.buyPrice) return 0;
+    return (this.stock.price - this.tradeData.buyPrice) * (this.tradeData.shares || 1);
+  }
+
+  getTradePLPercent(): number {
+    if (!this.tradeData || !this.stock || !this.tradeData.buyPrice || this.tradeData.buyPrice === 0) return 0;
+    return ((this.stock.price - this.tradeData.buyPrice) / this.tradeData.buyPrice) * 100;
+  }
+
   // Close position
   openCloseDialog(): void {
     this.showCloseDialog = true;

@@ -31,6 +31,30 @@
       </div>
     </div>
 
+    <!-- Trade Info (Buy Price / Shares Edit) -->
+    <div class="trade-edit-card" *ngIf="tradeData">
+      <div class="trade-edit-row">
+        <div class="trade-edit-field">
+          <label>Buy Price</label>
+          <div class="trade-input-wrap">
+            <span class="input-prefix">$</span>
+            <input type="number" [(ngModel)]="tradeData.buyPrice" (blur)="saveBuyPrice()" class="trade-input" step="0.01" min="0.01" />
+          </div>
+        </div>
+        <div class="trade-edit-field">
+          <label>Shares</label>
+          <input type="number" [(ngModel)]="tradeData.shares" (blur)="saveShares()" class="trade-input" step="1" min="0" />
+        </div>
+        <div class="trade-edit-field trade-pl-field" *ngIf="tradeData.buyPrice > 0 && stock">
+          <label>P&amp;L</label>
+          <span class="trade-pl-value" [class.positive]="stock.price >= tradeData.buyPrice" [class.negative]="stock.price < tradeData.buyPrice">
+            {{ stock.price >= tradeData.buyPrice ? '+' : '' }}{{ getTradePLPercent() | number:'1.2-2' }}%
+            ({{ stock.price >= tradeData.buyPrice ? '+$' : '-$' }}{{ (getTradePL() >= 0 ? getTradePL() : -getTradePL()) | number:'1.2-2' }})
+          </span>
+        </div>
+      </div>
+    </div>
+
     <!-- Company Description -->
     <div class="description-card" *ngIf="details?.description">
       <h2>About</h2>

@@ -140,6 +140,77 @@
   color: var(--accent-red);
 }
 
+/* Trade Edit Card */
+.trade-edit-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px var(--shadow);
+}
+
+.trade-edit-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.trade-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 100px;
+}
+
+.trade-edit-field label {
+  font-size: 0.7rem;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.trade-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.input-prefix {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.trade-input {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 600;
+  width: 110px;
+  transition: border-color 0.2s;
+}
+
+.trade-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.trade-pl-field {
+  margin-left: auto;
+}
+
+.trade-pl-value {
+  font-size: 1rem;
+  font-weight: 700;
+  padding: 8px 0;
+}
+
 /* Description Card */
 .description-card {
   background: var(--bg-card);
@@ -640,6 +711,25 @@ tbody tr:hover {
 
   .price-change {
     font-size: 1rem;
+  }
+
+  .trade-edit-row {
+    flex-direction: row;
+    gap: 12px;
+  }
+
+  .trade-edit-field {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .trade-input {
+    width: 100%;
+  }
+
+  .trade-pl-field {
+    margin-left: 0;
+    flex-basis: 100%;
   }
 
   .stats-grid {
