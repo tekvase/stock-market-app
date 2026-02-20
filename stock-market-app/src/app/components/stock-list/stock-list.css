@@ -2572,9 +2572,13 @@ tbody tr:hover .sticky-col {
   .portfolio-summary {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    gap: 8px;
     padding: 12px 14px;
     order: 2;
+    margin-top: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 10px;
   }
 
   .table-container {
