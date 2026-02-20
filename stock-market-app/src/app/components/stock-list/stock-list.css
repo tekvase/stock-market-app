@@ -2650,10 +2650,6 @@ tbody tr:hover .sticky-col {
     color: var(--text-subtle);
     line-height: 1.2;
     margin-top: 1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 85px;
   }
 
   .card-v3-divider-v {
@@ -2666,7 +2662,7 @@ tbody tr:hover .sticky-col {
   .card-v3-right {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
     padding: 0 10px;
     flex: 1;
