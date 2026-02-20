@@ -69,13 +69,13 @@
   background: var(--bg-card);
   border: 1px solid var(--border-primary);
   border-radius: 12px;
-  padding: 30px;
+  padding: 16px 20px;
   box-shadow: 0 4px 16px var(--shadow);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 8px;
 }
 
 .title-section {
@@ -145,10 +145,10 @@
   width: 100%;
   display: flex;
   align-items: flex-end;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
-  padding-top: 16px;
-  margin-top: 16px;
+  padding-top: 10px;
+  margin-top: 8px;
   border-top: 1px solid var(--border-primary);
 }
 
@@ -242,29 +242,33 @@
 /* Stats Grid */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
 }
 
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border-primary);
-  border-radius: 12px;
-  padding: 18px;
-  box-shadow: 0 4px 16px var(--shadow);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 2px 8px var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .stat-label {
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: var(--text-subtle);
-  margin-bottom: 6px;
-  font-weight: 500;
+  margin-bottom: 0;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .stat-value {
-  font-size: 1.3rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -688,8 +692,8 @@ tbody tr:hover {
   .stock-header {
     flex-direction: row;
     flex-wrap: wrap;
-    padding: 16px;
-    gap: 8px;
+    padding: 12px 14px;
+    gap: 4px;
   }
 
   .title-section {
@@ -737,15 +741,15 @@ tbody tr:hover {
 
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: 8px;
   }
 
   .stat-card {
-    padding: 14px;
+    padding: 8px 10px;
   }
 
   .stat-value {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
   }
 
   /* Chart */
@@ -820,7 +824,7 @@ tbody tr:hover {
   }
 
   .stock-header {
-    padding: 16px;
+    padding: 10px 12px;
   }
 
   .stock-symbol {
@@ -837,19 +841,19 @@ tbody tr:hover {
 
   .stats-grid {
     grid-template-columns: 1fr 1fr;
-    gap: 8px;
+    gap: 6px;
   }
 
   .stat-card {
-    padding: 10px;
+    padding: 8px 10px;
   }
 
   .stat-label {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
   }
 
   .stat-value {
-    font-size: 1rem;
+    font-size: 0.9rem;
   }
 
   .chart {
