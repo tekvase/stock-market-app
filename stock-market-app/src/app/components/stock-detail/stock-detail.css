@@ -686,25 +686,35 @@ tbody tr:hover {
   }
 
   .stock-header {
-    flex-direction: column;
-    padding: 20px;
-    gap: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 16px;
+    gap: 8px;
+  }
+
+  .title-section {
+    flex: 1;
+    min-width: 0;
   }
 
   .price-section {
-    text-align: left;
+    text-align: right;
   }
 
   .stock-symbol {
-    font-size: 1.8rem;
+    font-size: 1.4rem;
+  }
+
+  .stock-name {
+    font-size: 0.85rem;
   }
 
   .current-price {
-    font-size: 1.8rem;
+    font-size: 1.4rem;
   }
 
   .price-change {
-    font-size: 1rem;
+    font-size: 0.85rem;
   }
 
   .header-trade-row {
