@@ -2613,102 +2613,71 @@ tbody tr:hover .sticky-col {
     gap: 10px;
   }
 
-  .stock-card {
+  .stock-card-v3 {
     background: var(--bg-card);
     border: 1px solid var(--border-primary);
     border-radius: 12px;
     padding: 14px 16px;
     cursor: pointer;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 16px;
   }
 
-  .stock-card:active {
+  .stock-card-v3:active {
     background: var(--bg-hover-elevated);
     border-color: var(--border-hover);
   }
 
-  .card-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding-bottom: 10px;
-    margin-bottom: 8px;
-    border-bottom: 1px solid var(--border-secondary);
-  }
-
-  .card-symbol-section {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .card-symbol {
-    font-weight: 700;
-    font-size: 1rem;
-    color: var(--accent-blue);
-    text-decoration: none;
-  }
-
-  .card-name {
-    font-size: 0.75rem;
-    color: var(--text-subtle);
-    margin-top: 1px;
-  }
-
-  .card-current-price {
+  .card-v3-symbol {
     font-weight: 700;
     font-size: 1.1rem;
+    color: var(--accent-blue);
+    min-width: 50px;
   }
 
-  .card-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 16px;
-  }
-
-  .card-detail {
+  .card-v3-data {
+    flex: 1;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 4px 0;
+    flex-direction: column;
+    gap: 2px;
   }
 
-  .card-label {
-    font-size: 0.75rem;
-    color: var(--text-primary);
-    text-transform: uppercase;
+  .card-v3-row {
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 16px;
+  }
+
+  .card-v3-price {
     font-weight: 700;
-    letter-spacing: 0.3px;
-  }
-
-  .card-val {
-    font-size: 0.85rem;
-    font-weight: 600;
+    font-size: 1.05rem;
     color: var(--text-primary);
-  }
-
-  .card-buy-editable {
-    cursor: pointer;
-    border-bottom: 1px dashed var(--text-subtle);
-    padding-bottom: 1px;
-  }
-
-  .card-buy-edit, .card-shares-edit {
-    display: flex;
-  }
-
-  .card-edit-input {
-    width: 70px;
-    padding: 3px 6px;
-    border: 1px solid var(--accent-blue);
-    border-radius: 4px;
-    font-size: 0.82rem;
-    background: var(--bg-input);
-    color: var(--text-primary);
+    min-width: 70px;
     text-align: right;
   }
 
-  .card-pl-detail {
-    border-bottom: none;
+  .card-v3-buy {
+    font-size: 0.85rem;
+    color: var(--text-subtle);
+    min-width: 70px;
+    text-align: right;
+  }
+
+  .card-v3-pl {
+    font-weight: 600;
+    font-size: 0.9rem;
+    min-width: 70px;
+    text-align: right;
+  }
+
+  .card-v3-pct {
+    font-weight: 600;
+    font-size: 0.85rem;
+    min-width: 70px;
+    text-align: right;
   }
 
   /* Hide earnings desktop table, show mobile cards */
