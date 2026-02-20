@@ -318,19 +318,31 @@
 
       <!-- Mobile Card View -->
       <div class="mobile-stock-cards">
-        <div *ngFor="let stock of getFilteredStocks()" class="stock-card-compact" (click)="openStockEditPopup(stock)">
-          <div class="compact-left">
-            <span class="compact-symbol">{{ stock.symbol }}</span>
-            <span class="compact-name">{{ stock.name }}</span>
+        <div *ngFor="let stock of getFilteredStocks()" class="stock-card" (click)="openStockEditPopup(stock)">
+          <div class="card-top">
+            <div class="card-symbol-section">
+              <span class="card-symbol">{{ stock.symbol }}</span>
+              <span class="card-name">{{ stock.name }}</span>
+            </div>
+            <div class="card-price-section">
+              <span class="card-current-price" [class.positive]="stock.price >= stock.buyPrice" [class.negative]="stock.price < stock.buyPrice">
+                ${{ stock.price | number:'1.2-2' }}
+              </span>
+            </div>
           </div>
-          <div class="compact-right">
-            <span class="compact-price" [class.positive]="stock.price >= stock.buyPrice" [class.negative]="stock.price < stock.buyPrice">
-              ${{ stock.price | number:'1.2-2' }}
-            </span>
-            <span *ngIf="stock.buyPrice > 0" class="compact-pl" [class.positive]="stock.price >= stock.buyPrice" [class.negative]="stock.price < stock.buyPrice">
-              {{ stock.price >= stock.buyPrice ? '+' : '' }}{{ getCurrentPLPercent(stock) | number:'1.1-1' }}%
-            </span>
-            <span *ngIf="!stock.buyPrice || stock.buyPrice <= 0" class="compact-pl">—</span>
+          <div class="card-details">
+            <div class="card-detail">
+              <span class="card-label">Buy</span>
+              <span class="card-val">${{ stock.buyPrice | number:'1.2-2' }}</span>
+            </div>
+            <div class="card-detail card-pl-detail">
+              <span class="card-label">P&amp;L</span>
+              <span *ngIf="stock.buyPrice > 0" class="card-val" [class.positive]="stock.price >= stock.buyPrice" [class.negative]="stock.price < stock.buyPrice">
+                {{ stock.price >= stock.buyPrice ? '+$' : '-$' }}{{ (getCurrentPL(stock) >= 0 ? getCurrentPL(stock) : -getCurrentPL(stock)) | number:'1.2-2' }}
+                ({{ stock.price >= stock.buyPrice ? '+' : '' }}{{ getCurrentPLPercent(stock) | number:'1.2-2' }}%)
+              </span>
+              <span *ngIf="!stock.buyPrice || stock.buyPrice <= 0" class="card-val">—</span>
+            </div>
           </div>
         </div>
         <div *ngIf="getFilteredStocks().length === 0" class="no-data">
