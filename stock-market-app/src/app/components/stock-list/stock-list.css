@@ -1665,6 +1665,61 @@ tbody tr:hover .sticky-col {
   color: var(--text-secondary);
 }
 
+/* Stock Edit Popup (Mobile) */
+.edit-popup-price {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.edit-popup-current {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.edit-popup-name {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.edit-popup-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.edit-popup-field label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.edit-popup-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border-primary);
+  margin-bottom: 16px;
+}
+
+.edit-popup-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.edit-popup-row span:last-child {
+  font-weight: 600;
+}
+
 /* ========================
    EARNINGS SECTION
    ======================== */

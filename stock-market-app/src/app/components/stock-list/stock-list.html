@@ -318,11 +318,10 @@
 
       <!-- Mobile Card View -->
       <div class="mobile-stock-cards">
-        <div *ngFor="let stock of getFilteredStocks()" class="stock-card" (click)="navigateToStock(stock.symbol)">
+        <div *ngFor="let stock of getFilteredStocks()" class="stock-card" (click)="openStockEditPopup(stock)">
           <div class="card-top">
             <div class="card-symbol-section">
-              <a *ngIf="canViewStockPage" [routerLink]="['/stock', stock.symbol]" class="card-symbol">{{ stock.symbol }}</a>
-              <span *ngIf="!canViewStockPage" class="card-symbol">{{ stock.symbol }}</span>
+              <span class="card-symbol">{{ stock.symbol }}</span>
               <span class="card-name">{{ stock.name }}</span>
             </div>
             <div class="card-price-section">
@@ -334,39 +333,7 @@
           <div class="card-details">
             <div class="card-detail">
               <span class="card-label">Buy</span>
-              <span *ngIf="editingSymbol !== stock.symbol" class="card-val card-buy-editable" (click)="startEditBuyPrice(stock); $event.stopPropagation()">${{ stock.buyPrice | number:'1.2-2' }}</span>
-              <div *ngIf="editingSymbol === stock.symbol" class="card-buy-edit" (click)="$event.stopPropagation()">
-                <input
-                  type="number"
-                  [(ngModel)]="editBuyPrice"
-                  (keydown)="onEditKeydown($event, stock)"
-                  (blur)="saveBuyPrice(stock)"
-                  class="card-edit-input"
-                  step="0.01"
-                  min="0.01"
-                >
-              </div>
-            </div>
-            <div class="card-detail">
-              <span class="card-label">Shares</span>
-              <span *ngIf="editingSharesSymbol !== stock.symbol" class="card-val card-buy-editable" (click)="startEditShares(stock); $event.stopPropagation()">{{ stock.shares || '—' }}</span>
-              <div *ngIf="editingSharesSymbol === stock.symbol" class="card-shares-edit" (click)="$event.stopPropagation()">
-                <input
-                  type="number"
-                  [(ngModel)]="editShares"
-                  (keydown)="onSharesKeydown($event, stock)"
-                  (blur)="saveEditShares(stock)"
-                  class="card-edit-input"
-                  step="1"
-                  min="0"
-                >
-              </div>
-            </div>
-            <div class="card-detail">
-              <span class="card-label">Diversity</span>
-              <span class="card-val" [class.weight-danger]="getStockWeight(stock) > 50">
-                {{ getStockWeight(stock) > 0 ? (getStockWeight(stock) | number:'1.1-1') + '%' : '—' }}
-              </span>
+              <span class="card-val">${{ stock.buyPrice | number:'1.2-2' }}</span>
             </div>
             <div class="card-detail card-pl-detail">
               <span class="card-label">P&amp;L</span>
@@ -380,6 +347,53 @@
         </div>
         <div *ngIf="getFilteredStocks().length === 0" class="no-data">
           No stocks in your list. Search for a symbol above to add.
+        </div>
+      </div>
+
+      <!-- Stock Edit Popup (Mobile) -->
+      <div *ngIf="editPopupStock" class="popup-overlay" (click)="closeStockEditPopup()">
+        <div class="popup-content stock-edit-popup" (click)="$event.stopPropagation()">
+          <div class="popup-header">
+            <h3>{{ editPopupStock.symbol }}</h3>
+            <button class="close-btn" (click)="closeStockEditPopup()">&times;</button>
+          </div>
+          <div class="popup-body">
+            <div class="edit-popup-price">
+              <span class="edit-popup-current" [class.positive]="editPopupStock.price >= editPopupStock.buyPrice" [class.negative]="editPopupStock.price < editPopupStock.buyPrice">
+                ${{ editPopupStock.price | number:'1.2-2' }}
+              </span>
+              <span class="edit-popup-name">{{ editPopupStock.name }}</span>
+            </div>
+            <div class="edit-popup-fields">
+              <div class="edit-popup-field">
+                <label>Buy Price</label>
+                <input type="number" [(ngModel)]="editPopupBuyPrice" class="form-input" step="0.01" min="0.01" />
+              </div>
+              <div class="edit-popup-field">
+                <label>Shares</label>
+                <input type="number" [(ngModel)]="editPopupShares" class="form-input" step="1" min="0" />
+              </div>
+            </div>
+            <div class="edit-popup-summary">
+              <div class="edit-popup-row">
+                <span>Diversity</span>
+                <span [class.weight-danger]="getStockWeight(editPopupStock) > 50">
+                  {{ getStockWeight(editPopupStock) > 0 ? (getStockWeight(editPopupStock) | number:'1.1-1') + '%' : '—' }}
+                </span>
+              </div>
+              <div class="edit-popup-row" *ngIf="editPopupStock.buyPrice > 0">
+                <span>P&amp;L</span>
+                <span [class.positive]="editPopupStock.price >= editPopupStock.buyPrice" [class.negative]="editPopupStock.price < editPopupStock.buyPrice">
+                  {{ editPopupStock.price >= editPopupStock.buyPrice ? '+$' : '-$' }}{{ (getCurrentPL(editPopupStock) >= 0 ? getCurrentPL(editPopupStock) : -getCurrentPL(editPopupStock)) | number:'1.2-2' }}
+                  ({{ getCurrentPLPercent(editPopupStock) >= 0 ? '+' : '' }}{{ getCurrentPLPercent(editPopupStock) | number:'1.2-2' }}%)
+                </span>
+              </div>
+            </div>
+            <div class="popup-actions">
+              <button class="add-btn" (click)="saveStockEditPopup()">SAVE</button>
+              <button class="cancel-btn" (click)="deleteFromPopup(editPopupStock.symbol)">REMOVE</button>
+            </div>
+          </div>
         </div>
       </div>
 

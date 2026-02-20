@@ -56,6 +56,11 @@ export class StockList implements OnInit, OnDestroy {
   deleteConfirmSymbol: string | null = null;
   deleteSellPrice: number = 0;
 
+  // Mobile stock edit popup
+  editPopupStock: any = null;
+  editPopupBuyPrice: number = 0;
+  editPopupShares: number = 0;
+
   // Monthly P&L
   monthlyPL: number = 0;
   monthlyPLDetails: any[] = [];
@@ -1618,6 +1623,64 @@ export class StockList implements OnInit, OnDestroy {
 
   navigateToStock(symbol: string): void {
     this.router.navigate(['/stock', symbol]);
+  }
+
+  openStockEditPopup(stock: any): void {
+    this.editPopupStock = stock;
+    this.editPopupBuyPrice = stock.buyPrice || 0;
+    this.editPopupShares = stock.shares || 0;
+  }
+
+  closeStockEditPopup(): void {
+    this.editPopupStock = null;
+  }
+
+  saveStockEditPopup(): void {
+    if (!this.editPopupStock) return;
+    const symbol = this.editPopupStock.symbol;
+    const fields: any = {};
+    if (this.editPopupBuyPrice !== this.editPopupStock.buyPrice) {
+      fields.buyPrice = this.editPopupBuyPrice;
+    }
+    if (this.editPopupShares !== (this.editPopupStock.shares || 0)) {
+      fields.shares = this.editPopupShares;
+    }
+    if (Object.keys(fields).length === 0) {
+      this.closeStockEditPopup();
+      return;
+    }
+    if (fields.buyPrice !== undefined) {
+      this.stockService.updateUserTrade(symbol, fields.buyPrice).subscribe({
+        next: () => {
+          this.editPopupStock.buyPrice = fields.buyPrice;
+          if (fields.shares !== undefined) {
+            this.stockService.updateTradeFields(symbol, { shares: fields.shares }).subscribe({
+              next: () => {
+                this.editPopupStock.shares = fields.shares;
+                this.closeStockEditPopup();
+                this.cdr.detectChanges();
+              }
+            });
+          } else {
+            this.closeStockEditPopup();
+            this.cdr.detectChanges();
+          }
+        }
+      });
+    } else if (fields.shares !== undefined) {
+      this.stockService.updateTradeFields(symbol, { shares: fields.shares }).subscribe({
+        next: () => {
+          this.editPopupStock.shares = fields.shares;
+          this.closeStockEditPopup();
+          this.cdr.detectChanges();
+        }
+      });
+    }
+  }
+
+  deleteFromPopup(symbol: string): void {
+    this.closeStockEditPopup();
+    this.confirmDelete(symbol);
   }
 
   getAnalysisRecommendationTotal(): number {
