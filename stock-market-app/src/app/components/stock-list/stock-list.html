@@ -206,37 +206,44 @@
           <span class="summary-label">Total Stocks</span>
           <span class="summary-value">{{ getPortfolioSummary().total }}</span>
         </div>
-        <div class="summary-divider"></div>
         <div class="summary-item">
           <span class="summary-label">In Profit</span>
           <span class="summary-value summary-profit">{{ getPortfolioSummary().inProfit }}</span>
         </div>
-        <div class="summary-divider"></div>
         <div class="summary-item">
           <span class="summary-label">In Loss</span>
           <span class="summary-value summary-loss">{{ getPortfolioSummary().inLoss }}</span>
         </div>
-        <div class="summary-divider"></div>
         <div class="summary-item">
           <span class="summary-label">Avg Return</span>
           <span class="summary-value" [class.summary-profit]="getPortfolioSummary().avgReturn >= 0" [class.summary-loss]="getPortfolioSummary().avgReturn < 0">
             {{ getPortfolioSummary().avgReturn >= 0 ? '+' : '' }}{{ getPortfolioSummary().avgReturn | number:'1.2-2' }}%
           </span>
         </div>
-        <div class="summary-divider"></div>
         <div class="summary-item">
           <span class="summary-label">Total P&amp;L</span>
           <span class="summary-value" [class.summary-profit]="getPortfolioSummary().totalProfit >= 0" [class.summary-loss]="getPortfolioSummary().totalProfit < 0">
             {{ getPortfolioSummary().totalProfit >= 0 ? '+$' : '-$' }}{{ (getPortfolioSummary().totalProfit >= 0 ? getPortfolioSummary().totalProfit : -getPortfolioSummary().totalProfit) | number:'1.2-2' }}
           </span>
         </div>
-        <div class="summary-divider"></div>
         <div class="summary-item">
           <span class="summary-label">Monthly P&amp;L</span>
           <span class="summary-value" *ngIf="!loadingMonthlyPL" [class.summary-profit]="monthlyPL >= 0" [class.summary-loss]="monthlyPL < 0">
             {{ monthlyPL >= 0 ? '+$' : '-$' }}{{ (monthlyPL >= 0 ? monthlyPL : -monthlyPL) | number:'1.2-2' }}
           </span>
           <span class="summary-value" *ngIf="loadingMonthlyPL">...</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Invested</span>
+          <span class="summary-value">${{ getPortfolioSummary().totalInvested | number:'1.2-2' }}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Best</span>
+          <span class="summary-value summary-profit">{{ getPortfolioSummary().bestSymbol }} {{ getPortfolioSummary().bestPct >= 0 ? '+' : '' }}{{ getPortfolioSummary().bestPct | number:'1.1-1' }}%</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Worst</span>
+          <span class="summary-value summary-loss">{{ getPortfolioSummary().worstSymbol }} {{ getPortfolioSummary().worstPct | number:'1.1-1' }}%</span>
         </div>
       </div>
 

@@ -693,13 +693,18 @@ export class StockList implements OnInit, OnDestroy {
   }
 
   // Portfolio summary
-  getPortfolioSummary(): { total: number; inProfit: number; inLoss: number; avgReturn: number; totalProfit: number } {
+  getPortfolioSummary(): { total: number; inProfit: number; inLoss: number; avgReturn: number; totalProfit: number; totalInvested: number; bestSymbol: string; bestPct: number; worstSymbol: string; worstPct: number } {
     const stocks = this.stocks;
-    if (stocks.length === 0) return { total: 0, inProfit: 0, inLoss: 0, avgReturn: 0, totalProfit: 0 };
+    if (stocks.length === 0) return { total: 0, inProfit: 0, inLoss: 0, avgReturn: 0, totalProfit: 0, totalInvested: 0, bestSymbol: '--', bestPct: 0, worstSymbol: '--', worstPct: 0 };
     let inProfit = 0;
     let inLoss = 0;
     let totalPct = 0;
     let totalProfit = 0;
+    let totalInvested = 0;
+    let bestSymbol = stocks[0].symbol;
+    let bestPct = -Infinity;
+    let worstSymbol = stocks[0].symbol;
+    let worstPct = Infinity;
     for (const s of stocks) {
       const pct = this.getPriceDiffPercent(s);
       totalPct += pct;
@@ -707,14 +712,22 @@ export class StockList implements OnInit, OnDestroy {
       else inLoss++;
       if (s.buyPrice > 0) {
         totalProfit += this.getCurrentPL(s);
+        totalInvested += s.buyPrice * (s.shares || 1);
       }
+      if (pct > bestPct) { bestPct = pct; bestSymbol = s.symbol; }
+      if (pct < worstPct) { worstPct = pct; worstSymbol = s.symbol; }
     }
     return {
       total: stocks.length,
       inProfit,
       inLoss,
       avgReturn: totalPct / stocks.length,
-      totalProfit
+      totalProfit,
+      totalInvested,
+      bestSymbol,
+      bestPct,
+      worstSymbol,
+      worstPct
     };
   }
 
