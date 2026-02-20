@@ -1,4 +1,15 @@
 <div class="dashboard-container">
+  <!-- Price Alert Toast -->
+  <div class="alert-toast" *ngIf="latestAlert"
+       [class.alert-gain]="latestAlert.thresholdPct >= 0"
+       [class.alert-loss]="latestAlert.thresholdPct < 0">
+    <div class="alert-toast-content">
+      <span class="alert-toast-symbol">{{ latestAlert.symbol }}</span>
+      <span class="alert-toast-msg">{{ latestAlert.message }}</span>
+    </div>
+    <button class="alert-toast-close" (click)="dismissAlert()">&times;</button>
+  </div>
+
   <!-- Market Indices with Sparkline Charts -->
   <div class="market-indices-bar" *ngIf="marketIndices.length > 0">
     <div *ngFor="let idx of marketIndices" class="index-card" [class.up]="idx.change >= 0" [class.down]="idx.change < 0">

@@ -5,7 +5,11 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  min: 2,
+  max: 10,
+  idleTimeoutMillis: 60000,
+  connectionTimeoutMillis: 5000
 });
 
 // Test database connection
@@ -873,6 +877,54 @@ const db = {
       [fromDate, toDate, symbols]
     );
     return result.rows;
+  },
+
+  // Price Alerts
+  async initializePriceAlertsTable() {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS price_alerts (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        trade_id INTEGER NOT NULL,
+        symbol VARCHAR(10) NOT NULL,
+        alert_type VARCHAR(30) NOT NULL,
+        threshold_pct NUMERIC(8,2),
+        trigger_price NUMERIC(12,2),
+        buy_price NUMERIC(12,2),
+        message TEXT,
+        sent_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query('CREATE INDEX IF NOT EXISTS ix_alerts_trade ON price_alerts(trade_id, alert_type)');
+    await pool.query('CREATE INDEX IF NOT EXISTS ix_alerts_user ON price_alerts(user_id)');
+  },
+
+  async hasAlertBeenSent(tradeId, alertType) {
+    const result = await pool.query(
+      'SELECT 1 FROM price_alerts WHERE trade_id = $1 AND alert_type = $2 LIMIT 1',
+      [tradeId, alertType]
+    );
+    return result.rows.length > 0;
+  },
+
+  async recordAlert(userId, tradeId, symbol, alertType, thresholdPct, triggerPrice, buyPrice, message) {
+    await pool.query(
+      `INSERT INTO price_alerts (user_id, trade_id, symbol, alert_type, threshold_pct, trigger_price, buy_price, message)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [userId, tradeId, symbol, alertType, thresholdPct, triggerPrice, buyPrice, message]
+    );
+  },
+
+  async getRecentAlerts(userId, limit = 20) {
+    const result = await pool.query(
+      'SELECT * FROM price_alerts WHERE user_id = $1 ORDER BY sent_at DESC LIMIT $2',
+      [userId, limit]
+    );
+    return result.rows;
+  },
+
+  async clearAlertsForTrade(tradeId) {
+    await pool.query('DELETE FROM price_alerts WHERE trade_id = $1', [tradeId]);
   }
 };
 

@@ -3,6 +3,80 @@
    WCAG AA compliant contrast
    ============================ */
 
+/* ========== Price Alert Toast ========== */
+.alert-toast {
+  position: fixed;
+  top: 70px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 380px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.alert-toast.alert-gain {
+  background: linear-gradient(135deg, #0a2e14, #0f3d1c);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.alert-toast.alert-loss {
+  background: linear-gradient(135deg, #2e0a0a, #3d0f0f);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.alert-toast-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.alert-toast-symbol {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.alert-toast-msg {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.alert-toast-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.alert-toast-close:hover {
+  color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .alert-toast {
+    top: auto;
+    bottom: 16px;
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
+}
+
 .dashboard-container {
   max-width: 1600px;
   margin: 0 auto;

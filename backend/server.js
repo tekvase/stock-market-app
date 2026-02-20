@@ -788,6 +788,17 @@ app.get('/api/market/sentiment', async (req, res) => {
   }
 });
 
+// ─── Price Alerts ───
+app.get('/api/alerts', authenticateToken, async (req, res) => {
+  try {
+    const alerts = await db.getRecentAlerts(req.user.userId);
+    res.json(alerts);
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+    res.status(500).json({ error: 'Failed to fetch alerts' });
+  }
+});
+
 // ─── Market Conditions Endpoint ───
 app.get('/api/market/conditions', async (req, res) => {
   try {
@@ -1429,6 +1440,9 @@ app.patch('/api/trades/:symbol', authenticateToken, async (req, res) => {
     // If buyPrice is provided, update targets too
     if (buyPrice && buyPrice > 0) {
       await db.updateUserStockTrade(req.user.userId, symbol, buyPrice);
+      // Clear old alerts since thresholds changed
+      const trade = await db.getUserStockTrade(req.user.userId, symbol);
+      if (trade) await db.clearAlertsForTrade(trade.id);
     }
 
     // Update shares and/or sell price if provided
@@ -1871,6 +1885,7 @@ async function startServer() {
     await db.initializeOptionTradesTable();
     await db.initializeAiPicksTable();
     await db.initializeUserEarningsSymbolsTable();
+    await db.initializePriceAlertsTable();
     console.log('Database tables initialized');
 
     // Initialize scheduler
@@ -1890,6 +1905,87 @@ async function startServer() {
     wsManager = new FinnhubWebSocketManager(FINNHUB_API_KEY, io);
     wsManager.connect();
     console.log('Finnhub WebSocket manager initialized');
+
+    // Price Alert System
+    let activeTrades = [];
+    let lastTradesRefresh = 0;
+    const lastAlertCheck = {};
+
+    async function refreshActiveTrades() {
+      try {
+        const result = await pool.query(
+          "SELECT id, user_id, symbol, buy_price, target_price_1, stop_loss_price FROM user_stocktrades WHERE status = 'active' AND buy_price > 0"
+        );
+        activeTrades = result.rows;
+        lastTradesRefresh = Date.now();
+      } catch (err) {
+        console.error('[ALERT] Error refreshing trades:', err.message);
+      }
+    }
+
+    wsManager.onPriceCallback = async (symbol, price) => {
+      const now = Date.now();
+      if (lastAlertCheck[symbol] && now - lastAlertCheck[symbol] < 5000) return;
+      lastAlertCheck[symbol] = now;
+
+      if (now - lastTradesRefresh > 60000) await refreshActiveTrades();
+
+      const trades = activeTrades.filter(t => t.symbol === symbol);
+      if (trades.length === 0) return;
+
+      for (const trade of trades) {
+        const buyPrice = parseFloat(trade.buy_price);
+        if (buyPrice <= 0) continue;
+
+        const pctChange = ((price - buyPrice) / buyPrice) * 100;
+        const thresholds = [];
+
+        if (pctChange >= 5) {
+          const milestone = Math.floor(pctChange / 5) * 5;
+          for (let pct = 5; pct <= milestone; pct += 5) {
+            const alertType = pct === 20 ? 'gain_20_target1' : `gain_${pct}`;
+            const message = pct === 20
+              ? `🎯 TARGET 1 ACHIEVED! ${symbol} is up +${pctChange.toFixed(1)}% from $${buyPrice.toFixed(2)}. Now: $${price.toFixed(2)}`
+              : `📈 ${symbol} up +${pct}%! From $${buyPrice.toFixed(2)} → $${price.toFixed(2)} (+${pctChange.toFixed(1)}%)`;
+            thresholds.push({ alertType, pct, message });
+          }
+        } else if (pctChange <= -2) {
+          const milestone = Math.ceil(pctChange / 2) * 2;
+          for (let pct = -2; pct >= milestone; pct -= 2) {
+            const alertType = `loss_${Math.abs(pct)}`;
+            const message = `⚠️ STOP LOSS: ${symbol} down ${Math.abs(pctChange).toFixed(1)}% from $${buyPrice.toFixed(2)}. Now: $${price.toFixed(2)}`;
+            thresholds.push({ alertType, pct, message });
+          }
+        }
+
+        for (const { alertType, pct, message } of thresholds) {
+          try {
+            const sent = await db.hasAlertBeenSent(trade.id, alertType);
+            if (sent) continue;
+
+            await db.recordAlert(trade.user_id, trade.id, symbol, alertType, pct, price, buyPrice, message);
+
+            io.emit('price-alert', {
+              userId: trade.user_id,
+              symbol,
+              alertType,
+              thresholdPct: pct,
+              currentPrice: price,
+              buyPrice,
+              message,
+              timestamp: Date.now()
+            });
+
+            console.log(`[ALERT] ${alertType} | ${message}`);
+          } catch (err) {
+            // skip duplicate or DB error
+          }
+        }
+      }
+    };
+
+    refreshActiveTrades();
+    console.log('Price alert system initialized');
 
     // Handle frontend Socket.IO connections
     io.on('connection', (socket) => {

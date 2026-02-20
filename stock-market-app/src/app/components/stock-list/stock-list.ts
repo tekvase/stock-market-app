@@ -6,7 +6,8 @@ import { interval, Subscription } from 'rxjs';
 import { Stock, NewsItem } from '../../models/stock.model';
 import { StockService } from '../../services/stock.service';
 import { AuthService } from '../../services/auth.service';
-import { LivePriceService } from '../../services/live-price.service';
+import { LivePriceService, PriceAlert } from '../../services/live-price.service';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-stock-list',
@@ -99,6 +100,10 @@ export class StockList implements OnInit, OnDestroy {
 
   // Market Regime
   marketRegime = '';
+
+  // Price Alerts
+  latestAlert: PriceAlert | null = null;
+  private alertSub?: Subscription;
 
   // Market Intelligence
   Math = Math;
@@ -274,6 +279,7 @@ export class StockList implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private authService: AuthService,
     private livePriceService: LivePriceService,
+    private notificationService: NotificationService,
     private router: Router
   ) {
     const user = this.authService.getCurrentUser();
@@ -296,6 +302,7 @@ export class StockList implements OnInit, OnDestroy {
     this.loadMetricExplanations();
     this.loadMonthlyPL();
     this.loadUserOptions();
+    this.initializeAlerts();
   }
 
   ngOnDestroy(): void {
@@ -304,6 +311,9 @@ export class StockList implements OnInit, OnDestroy {
     }
     if (this.livePriceSubscription) {
       this.livePriceSubscription.unsubscribe();
+    }
+    if (this.alertSub) {
+      this.alertSub.unsubscribe();
     }
   }
 
@@ -366,6 +376,28 @@ export class StockList implements OnInit, OnDestroy {
     if (signal.includes('Buy')) return 'signal-buy';
     if (signal.includes('Sell')) return 'signal-sell';
     return 'signal-hold';
+  }
+
+  initializeAlerts(): void {
+    const user = this.authService.getCurrentUser();
+    if (user?.id) {
+      this.notificationService.initialize(user.id);
+      this.alertSub = this.livePriceService.onAlert$.subscribe(alert => {
+        if (alert.userId === user.id) {
+          this.latestAlert = alert;
+          this.cdr.detectChanges();
+          setTimeout(() => {
+            this.latestAlert = null;
+            this.cdr.detectChanges();
+          }, 8000);
+        }
+      });
+    }
+  }
+
+  dismissAlert(): void {
+    this.latestAlert = null;
+    this.cdr.detectChanges();
   }
 
   startLivePriceUpdates(): void {

@@ -107,19 +107,6 @@
       <div *ngIf="triggerMessage" class="trigger-message" [class.error]="triggerIsError">{{ triggerMessage }}</div>
     </div>
 
-    <!-- Recent Logs -->
-    <div class="dev-card wide-card" *ngIf="status.scheduler">
-      <h3 class="card-title">Scheduler Logs</h3>
-      <div class="logs-container" *ngIf="status.scheduler.logs?.length > 0">
-        <div *ngFor="let log of status.scheduler.logs" class="log-entry" [ngClass]="'log-' + log.level">
-          <span class="log-time">{{ formatTime(log.time) }}</span>
-          <span class="log-level">{{ log.level }}</span>
-          <span class="log-msg">{{ log.message }}</span>
-        </div>
-      </div>
-      <div *ngIf="!status.scheduler.logs?.length" class="no-logs">No logs yet. Logs appear after scheduled jobs run.</div>
-    </div>
-
   </div>
 
   <!-- Debug: raw response -->

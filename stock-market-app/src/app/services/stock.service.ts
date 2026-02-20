@@ -311,6 +311,13 @@ export class StockService {
     return this.http.post<any>(`${this.apiUrl}/earnings/manual`, { symbol, date }, { headers: this.getAuthHeaders() });
   }
 
+  // Price Alerts
+  getAlertHistory(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/alerts`, { headers: this.getAuthHeaders() }).pipe(
+      catchError(() => of([]))
+    );
+  }
+
   // Market Intelligence
   getSectorPerformance(): Observable<any[]> {
     return this.http.get<any[]>(`${this.apiUrl}/market/sectors`).pipe(

@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const { db } = require('./database');
+const { db, pool } = require('./database');
 const axios = require('axios');
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY;
@@ -537,11 +537,28 @@ async function quickSeedPicks() {
       return;
     }
 
-    console.log('⚡ Quick seed: Loading 50 popular stocks for immediate UI...');
+    // Include all active watchlist stocks so users always see AI scores for their holdings
+    let watchlistSymbols = [];
+    try {
+      const watchlistResult = await pool.query("SELECT DISTINCT symbol FROM user_stocktrades WHERE status = 'active'");
+      watchlistSymbols = watchlistResult.rows.map(r => r.symbol).filter(s => s && !QUICK_SEED_STOCKS.includes(s));
+      if (watchlistSymbols.length > 0) {
+        console.log(`📋 Adding ${watchlistSymbols.length} watchlist stocks: ${watchlistSymbols.join(', ')}`);
+      }
+    } catch (e) {
+      // ignore if table doesn't exist yet
+    }
+
+    const allSeedStocks = [...QUICK_SEED_STOCKS, ...watchlistSymbols];
+    console.log(`⚡ Quick seed: Loading ${allSeedStocks.length} stocks for immediate UI...`);
     const startTime = Date.now();
     const picks = [];
 
-    for (const symbol of QUICK_SEED_STOCKS) {
+    // Fetch market conditions for score adjustments
+    const marketConditions = await getMarketConditions();
+    console.log(`📊 Quick seed market: regime=${marketConditions.regime}, SPY=${marketConditions.spyChange}%, QQQ=${marketConditions.qqqChange}%`);
+
+    for (const symbol of allSeedStocks) {
       try {
         const [recs, quote, profile, metrics] = await Promise.all([
           batchFinnhubRequest('/stock/recommendation', { symbol }).catch(() => []),
@@ -589,7 +606,8 @@ async function quickSeedPicks() {
           news_negative_count: 0,
           news_total_count: 0
         };
-        pick.ai_score = calculateAiScore(pick.buy_ratio, pick.change_percent, 0, pick.eps_growth, pick.revenue_growth, pick.week_13_return);
+        pick.ai_score = calculateAiScore(pick.buy_ratio, pick.change_percent, 0, pick.eps_growth, pick.revenue_growth, pick.week_13_return, marketConditions, pick);
+        pick.market_regime = marketConditions.regime;
         pick.category = assignCategory(pick);
         pick.reason_text = generateReasonText(pick);
         pick.pick_date = today;

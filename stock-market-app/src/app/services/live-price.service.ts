@@ -10,15 +10,28 @@ export interface PriceUpdate {
   volume: number;
 }
 
+export interface PriceAlert {
+  userId: number;
+  symbol: string;
+  alertType: string;
+  thresholdPct: number;
+  currentPrice: number;
+  buyPrice: number;
+  message: string;
+  timestamp: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class LivePriceService implements OnDestroy {
   private socket: Socket | null = null;
   private priceUpdates$ = new Subject<PriceUpdate>();
+  private alertUpdates$ = new Subject<PriceAlert>();
   private subscribedSymbols = new Set<string>();
 
   public onPriceUpdate$ = this.priceUpdates$.asObservable();
+  public onAlert$ = this.alertUpdates$.asObservable();
 
   constructor() {
     this.connect();
@@ -40,6 +53,10 @@ export class LivePriceService implements OnDestroy {
 
     this.socket.on('price-update', (data: PriceUpdate) => {
       this.priceUpdates$.next(data);
+    });
+
+    this.socket.on('price-alert', (data: PriceAlert) => {
+      this.alertUpdates$.next(data);
     });
 
     this.socket.on('disconnect', () => {
@@ -71,5 +88,6 @@ export class LivePriceService implements OnDestroy {
   ngOnDestroy(): void {
     this.socket?.disconnect();
     this.priceUpdates$.complete();
+    this.alertUpdates$.complete();
   }
 }

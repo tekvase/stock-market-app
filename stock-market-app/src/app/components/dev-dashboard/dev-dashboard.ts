@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { StockService } from '../../services/stock.service';
@@ -19,7 +19,7 @@ export class DevDashboard implements OnInit, OnDestroy {
   triggerIsError = false;
   private refreshSub?: Subscription;
 
-  constructor(private stockService: StockService, private router: Router) {}
+  constructor(private stockService: StockService, private router: Router, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     // Check if running on native (Capacitor) — if so, redirect away
@@ -47,6 +47,7 @@ export class DevDashboard implements OnInit, OnDestroy {
         this.loading = false;
         this.error = '';
         this.debugResponse = '';
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Dev status error:', err);
@@ -61,6 +62,7 @@ export class DevDashboard implements OnInit, OnDestroy {
         } else {
           this.error = `Failed to load status (HTTP ${err.status || 'unknown'})`;
         }
+        this.cdr.detectChanges();
       }
     });
   }

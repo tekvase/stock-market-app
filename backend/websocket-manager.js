@@ -7,6 +7,7 @@ class FinnhubWebSocketManager {
     this.ws = null;
     this.subscribedSymbols = new Set();
     this.latestPrices = {}; // { symbol: { price, timestamp, volume } }
+    this.onPriceCallback = null; // external callback for price alerts
     this.reconnectInterval = 5000;
     this.reconnectTimer = null;
     this.isConnected = false;
@@ -50,6 +51,11 @@ class FinnhubWebSocketManager {
               timestamp,
               volume
             });
+
+            // Fire price alert callback if registered
+            if (this.onPriceCallback) {
+              this.onPriceCallback(symbol, price, timestamp);
+            }
           }
         }
       } catch (err) {
