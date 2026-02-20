@@ -144,49 +144,49 @@
 .header-trade-row {
   width: 100%;
   display: flex;
-  align-items: flex-end;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
-  padding-top: 10px;
-  margin-top: 8px;
+  padding-top: 8px;
+  margin-top: 6px;
   border-top: 1px solid var(--border-primary);
 }
 
-.header-trade-field {
+.trade-inline-field {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 4px;
 }
 
-.header-trade-field label {
-  font-size: 0.7rem;
+.trade-inline-field label {
+  font-size: 0.65rem;
   color: var(--text-subtle);
   text-transform: uppercase;
   font-weight: 600;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.3px;
 }
 
 .trade-input-wrap {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .input-prefix {
   color: var(--text-muted);
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
 .trade-input {
   background: var(--bg-elevated);
   border: 1px solid var(--border-primary);
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 6px;
+  padding: 4px 8px;
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  width: 110px;
+  width: 70px;
   transition: border-color 0.2s;
 }
 
@@ -195,14 +195,34 @@
   border-color: var(--accent-blue);
 }
 
-.header-pl {
+.trade-pl-field {
   margin-left: auto;
 }
 
 .trade-pl-value {
-  font-size: 1rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  padding: 8px 0;
+}
+
+.close-pos-sm {
+  background: var(--accent-red-bg);
+  color: var(--accent-red);
+  border: 1px solid var(--accent-red-border);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.close-pos-sm:hover {
+  background: var(--accent-red-border);
 }
 
 /* Description Card */
@@ -722,20 +742,15 @@ tbody tr:hover {
   }
 
   .header-trade-row {
-    gap: 12px;
-  }
-
-  .header-trade-field {
-    flex: 1;
-    min-width: 0;
+    gap: 8px;
   }
 
   .trade-input {
-    width: 100%;
+    width: 60px;
   }
 
-  .header-pl {
-    margin-left: 0;
+  .trade-pl-field {
+    margin-left: auto;
     flex-basis: 100%;
   }
 
