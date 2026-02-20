@@ -146,7 +146,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   padding-top: 8px;
   margin-top: 6px;
   border-top: 1px solid var(--border-primary);
@@ -742,16 +742,28 @@ tbody tr:hover {
   }
 
   .header-trade-row {
-    gap: 8px;
+    gap: 6px;
+    flex-wrap: nowrap;
   }
 
   .trade-input {
-    width: 60px;
+    width: 55px;
+    padding: 3px 6px;
+    font-size: 0.8rem;
   }
 
   .trade-pl-field {
     margin-left: auto;
-    flex-basis: 100%;
+  }
+
+  .trade-pl-value {
+    font-size: 0.75rem;
+  }
+
+  .close-pos-sm {
+    width: 24px;
+    height: 24px;
+    font-size: 0.9rem;
   }
 
   .stats-grid {
