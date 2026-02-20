@@ -140,31 +140,25 @@
   color: var(--accent-red);
 }
 
-/* Trade Edit Card */
-.trade-edit-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-primary);
-  border-radius: 12px;
-  padding: 16px 20px;
-  margin-bottom: 16px;
-  box-shadow: 0 4px 16px var(--shadow);
-}
-
-.trade-edit-row {
+/* Trade info inside header */
+.header-trade-row {
+  width: 100%;
   display: flex;
   align-items: flex-end;
   gap: 16px;
   flex-wrap: wrap;
+  padding-top: 16px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border-primary);
 }
 
-.trade-edit-field {
+.header-trade-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  min-width: 100px;
 }
 
-.trade-edit-field label {
+.header-trade-field label {
   font-size: 0.7rem;
   color: var(--text-subtle);
   text-transform: uppercase;
@@ -201,7 +195,7 @@
   border-color: var(--accent-blue);
 }
 
-.trade-pl-field {
+.header-pl {
   margin-left: auto;
 }
 
@@ -713,12 +707,11 @@ tbody tr:hover {
     font-size: 1rem;
   }
 
-  .trade-edit-row {
-    flex-direction: row;
+  .header-trade-row {
     gap: 12px;
   }
 
-  .trade-edit-field {
+  .header-trade-field {
     flex: 1;
     min-width: 0;
   }
@@ -727,7 +720,7 @@ tbody tr:hover {
     width: 100%;
   }
 
-  .trade-pl-field {
+  .header-pl {
     margin-left: 0;
     flex-basis: 100%;
   }
