@@ -161,9 +161,10 @@ export class StockDetail implements OnInit, OnDestroy {
 
   formatMarketCap(value: number | null): string {
     if (!value) return 'N/A';
-    if (value >= 1000) return `$${(value / 1000).toFixed(1)}T`;
-    if (value >= 1) return `$${value.toFixed(1)}B`;
-    return `$${(value * 1000).toFixed(0)}M`;
+    // Finnhub returns marketCapitalization in millions USD
+    if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}T`;
+    if (value >= 1000) return `$${(value / 1000).toFixed(1)}B`;
+    return `$${value.toFixed(0)}M`;
   }
 
   getRecommendationTotal(rec: any): number {
