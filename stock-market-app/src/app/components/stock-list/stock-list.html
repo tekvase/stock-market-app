@@ -319,22 +319,27 @@
       <!-- Mobile Card View -->
       <div class="mobile-stock-cards">
         <div *ngFor="let stock of getFilteredStocks()" class="stock-card-v3" (click)="navigateToStock(stock.symbol)">
-          <span class="card-v3-symbol">{{ stock.symbol }}</span>
-          <div class="card-v3-data">
-            <div class="card-v3-row">
-              <span class="card-v3-price">${{ stock.price | number:'1.2-2' }}</span>
-              <span *ngIf="stock.buyPrice > 0" class="card-v3-pl" [class.positive]="stock.price >= stock.buyPrice" [class.negative]="stock.price < stock.buyPrice">
-                {{ stock.price >= stock.buyPrice ? '+$' : '-$' }}{{ (getCurrentPL(stock) >= 0 ? getCurrentPL(stock) : -getCurrentPL(stock)) | number:'1.2-2' }}
-              </span>
-              <span *ngIf="!stock.buyPrice || stock.buyPrice <= 0" class="card-v3-pl">—</span>
-            </div>
-            <div class="card-v3-row">
-              <span class="card-v3-buy">${{ stock.buyPrice | number:'1.2-2' }}</span>
-              <span *ngIf="stock.buyPrice > 0" class="card-v3-pct" [class.positive]="stock.price >= stock.buyPrice" [class.negative]="stock.price < stock.buyPrice">
-                {{ stock.price >= stock.buyPrice ? '+' : '' }}{{ getCurrentPLPercent(stock) | number:'1.2-2' }}%
-              </span>
-              <span *ngIf="!stock.buyPrice || stock.buyPrice <= 0" class="card-v3-pct">—</span>
-            </div>
+          <div class="card-v3-left">
+            <span class="card-v3-symbol">{{ stock.symbol }}</span>
+            <span class="card-v3-name">{{ stock.name }}</span>
+          </div>
+          <div class="card-v3-divider-v"></div>
+          <div class="card-v3-mid">
+            <span class="card-v3-price">${{ stock.price | number:'1.2-2' }}</span>
+            <div class="card-v3-divider-h"></div>
+            <span class="card-v3-buy">${{ stock.buyPrice | number:'1.2-2' }}</span>
+          </div>
+          <div class="card-v3-divider-v"></div>
+          <div class="card-v3-right">
+            <span *ngIf="stock.buyPrice > 0" class="card-v3-pct" [class.positive]="stock.price >= stock.buyPrice" [class.negative]="stock.price < stock.buyPrice">
+              {{ stock.price >= stock.buyPrice ? '+' : '' }}{{ getCurrentPLPercent(stock) | number:'1.2-2' }}%
+            </span>
+            <span *ngIf="!stock.buyPrice || stock.buyPrice <= 0" class="card-v3-pct">—</span>
+            <div class="card-v3-divider-h"></div>
+            <span *ngIf="stock.buyPrice > 0" class="card-v3-pl" [class.positive]="stock.price >= stock.buyPrice" [class.negative]="stock.price < stock.buyPrice">
+              {{ stock.price >= stock.buyPrice ? '+$' : '-$' }}{{ (getCurrentPL(stock) >= 0 ? getCurrentPL(stock) : -getCurrentPL(stock)) | number:'1.2-2' }}
+            </span>
+            <span *ngIf="!stock.buyPrice || stock.buyPrice <= 0" class="card-v3-pl">—</span>
           </div>
         </div>
         <div *ngIf="getFilteredStocks().length === 0" class="no-data">
