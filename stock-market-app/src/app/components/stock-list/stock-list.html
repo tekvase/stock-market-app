@@ -11,7 +11,7 @@
   </div>
 
   <!-- Market Indices with Sparkline Charts -->
-  <div class="market-indices-bar" *ngIf="marketIndices.length > 0">
+  <div class="market-indices-bar" *ngIf="marketIndices.length > 0 || extraIndices.length > 0">
     <div *ngFor="let idx of marketIndices" class="index-card" [class.up]="idx.change >= 0" [class.down]="idx.change < 0">
       <div class="index-card-info">
         <span class="index-name">{{ idx.name }}</span>
@@ -31,10 +31,6 @@
         />
       </svg>
     </div>
-  </div>
-
-  <!-- Extra Indices: Bitcoin, Oil, Gas -->
-  <div class="market-indices-bar extra-indices-bar" *ngIf="extraIndices.length > 0">
     <div *ngFor="let idx of extraIndices" class="index-card" [class.up]="idx.change >= 0" [class.down]="idx.change < 0">
       <div class="index-card-info">
         <span class="index-name">{{ idx.name }}</span>
