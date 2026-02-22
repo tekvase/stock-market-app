@@ -938,40 +938,19 @@ app.get('/api/market-indices/charts', async (req, res) => {
   }
 });
 
-// ─── Extra Indices: Bitcoin & Oil/Gas with Sparkline Charts ───
+// ─── Extra Indices: Bitcoin & Crude Oil with Sparkline Charts ───
+const EXTRA_INDICES = [
+  { symbol: 'IBIT', name: 'Bitcoin' },
+  { symbol: 'USO', name: 'Crude Oil' }
+];
+
 app.get('/api/extra-indices/charts', async (req, res) => {
   try {
     const now = Math.floor(Date.now() / 1000);
     const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
 
-    // Bitcoin via Finnhub crypto candle
-    let bitcoin = { symbol: 'BTC', name: 'Bitcoin', price: 0, change: 0, changePercent: 0, candles: [] };
-    try {
-      const candles = await finnhubRequest('/crypto/candle', {
-        symbol: 'BINANCE:BTCUSDT', resolution: 'D', from: thirtyDaysAgo, to: now
-      });
-      if (candles && candles.s !== 'no_data' && candles.c && candles.t && candles.c.length > 1) {
-        bitcoin.candles = candles.t.map((t, i) => ({
-          date: new Date(t * 1000).toISOString().split('T')[0],
-          close: candles.c[i]
-        }));
-        const latest = candles.c[candles.c.length - 1];
-        const prev = candles.c[candles.c.length - 2];
-        bitcoin.price = latest;
-        bitcoin.change = latest - prev;
-        bitcoin.changePercent = prev > 0 ? ((latest - prev) / prev) * 100 : 0;
-      }
-    } catch (err) {
-      console.error('Bitcoin fetch error:', err.message);
-    }
-
-    // Crude Oil via USO ETF
-    const FUEL_INDICES = [
-      { symbol: 'USO', name: 'Crude Oil' }
-    ];
-
-    const fuelResults = await Promise.all(
-      FUEL_INDICES.map(async (idx) => {
+    const results = await Promise.all(
+      EXTRA_INDICES.map(async (idx) => {
         try {
           const [quote, candles] = await Promise.all([
             finnhubRequest('/quote', { symbol: idx.symbol }),
@@ -998,7 +977,7 @@ app.get('/api/extra-indices/charts', async (req, res) => {
       })
     );
 
-    res.json([bitcoin, ...fuelResults]);
+    res.json(results);
   } catch (error) {
     console.error('Error fetching extra indices charts:', error);
     res.status(500).json({ error: 'Failed to fetch extra indices charts' });
