@@ -33,6 +33,29 @@
     </div>
   </div>
 
+  <!-- Extra Indices: Bitcoin, Oil, Gas -->
+  <div class="market-indices-bar extra-indices-bar" *ngIf="extraIndices.length > 0">
+    <div *ngFor="let idx of extraIndices" class="index-card" [class.up]="idx.change >= 0" [class.down]="idx.change < 0">
+      <div class="index-card-info">
+        <span class="index-name">{{ idx.name }}</span>
+        <span class="index-price">{{ formatExtraPrice(idx) }}</span>
+        <span class="index-change-pct" [class.positive]="idx.change >= 0" [class.negative]="idx.change < 0">
+          {{ idx.changePercent >= 0 ? '+' : '' }}{{ idx.changePercent | number:'1.2-2' }}%
+        </span>
+      </div>
+      <svg *ngIf="idx.candles?.length > 1" class="sparkline" viewBox="0 0 100 30" preserveAspectRatio="none">
+        <polyline
+          [attr.points]="getSparklinePath(idx.candles)"
+          fill="none"
+          [attr.stroke]="idx.change >= 0 ? '#22c55e' : '#ef4444'"
+          stroke-width="1.5"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+        />
+      </svg>
+    </div>
+  </div>
+
   <!-- Search Bar (visible only on watchlist tab) -->
   <div class="search-section" *ngIf="activeTab === 'watchlist'">
     <form (submit)="onSearchSubmit($event)" class="search-form">

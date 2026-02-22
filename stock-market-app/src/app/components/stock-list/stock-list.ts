@@ -98,6 +98,7 @@ export class StockList implements OnInit, OnDestroy {
   // Market Indices
   marketIndices: any[] = [];
   loadingIndices = true;
+  extraIndices: any[] = [];
 
   // Buy/Sell Signals
   signals: any[] = [];
@@ -300,6 +301,7 @@ export class StockList implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadMarketIndices();
+    this.loadExtraIndices();
     this.loadUserTrades();
     this.loadNews();
     this.startNewsAutoRefresh();
@@ -346,6 +348,19 @@ export class StockList implements OnInit, OnDestroy {
         });
       }
     });
+  }
+
+  loadExtraIndices(): void {
+    this.stockService.getExtraIndicesCharts().subscribe({
+      next: (data) => { this.extraIndices = data; this.cdr.detectChanges(); },
+      error: () => { this.extraIndices = []; this.cdr.detectChanges(); }
+    });
+  }
+
+  formatExtraPrice(idx: any): string {
+    if (!idx.price) return '$0.00';
+    if (idx.price >= 1000) return '$' + Math.round(idx.price).toLocaleString();
+    return '$' + idx.price.toFixed(2);
   }
 
   getSparklinePath(candles: any[]): string {

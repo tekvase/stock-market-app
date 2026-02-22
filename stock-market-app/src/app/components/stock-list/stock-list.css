@@ -146,6 +146,10 @@
   scrollbar-width: none;
 }
 
+.extra-indices-bar {
+  margin-top: -8px;
+}
+
 .market-indices-bar::-webkit-scrollbar {
   display: none;
 }

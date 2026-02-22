@@ -938,6 +938,74 @@ app.get('/api/market-indices/charts', async (req, res) => {
   }
 });
 
+// ─── Extra Indices: Bitcoin & Oil/Gas with Sparkline Charts ───
+app.get('/api/extra-indices/charts', async (req, res) => {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const thirtyDaysAgo = now - (30 * 24 * 60 * 60);
+
+    // Bitcoin via Finnhub crypto candle
+    let bitcoin = { symbol: 'BTC', name: 'Bitcoin', price: 0, change: 0, changePercent: 0, candles: [] };
+    try {
+      const candles = await finnhubRequest('/crypto/candle', {
+        symbol: 'BINANCE:BTCUSDT', resolution: 'D', from: thirtyDaysAgo, to: now
+      });
+      if (candles && candles.s !== 'no_data' && candles.c && candles.t && candles.c.length > 1) {
+        bitcoin.candles = candles.t.map((t, i) => ({
+          date: new Date(t * 1000).toISOString().split('T')[0],
+          close: candles.c[i]
+        }));
+        const latest = candles.c[candles.c.length - 1];
+        const prev = candles.c[candles.c.length - 2];
+        bitcoin.price = latest;
+        bitcoin.change = latest - prev;
+        bitcoin.changePercent = prev > 0 ? ((latest - prev) / prev) * 100 : 0;
+      }
+    } catch (err) {
+      console.error('Bitcoin fetch error:', err.message);
+    }
+
+    // Crude Oil via USO ETF, Natural Gas via UNG ETF
+    const FUEL_INDICES = [
+      { symbol: 'USO', name: 'Crude Oil' },
+      { symbol: 'UNG', name: 'Natural Gas' }
+    ];
+
+    const fuelResults = await Promise.all(
+      FUEL_INDICES.map(async (idx) => {
+        try {
+          const [quote, candles] = await Promise.all([
+            finnhubRequest('/quote', { symbol: idx.symbol }),
+            finnhubRequest('/stock/candle', { symbol: idx.symbol, resolution: 'D', from: thirtyDaysAgo, to: now }).catch(() => null)
+          ]);
+          let candleData = [];
+          if (candles && candles.s !== 'no_data' && candles.c && candles.t) {
+            candleData = candles.t.map((t, i) => ({
+              date: new Date(t * 1000).toISOString().split('T')[0],
+              close: candles.c[i]
+            }));
+          }
+          return {
+            symbol: idx.symbol,
+            name: idx.name,
+            price: quote.c || 0,
+            change: quote.d || 0,
+            changePercent: quote.dp || 0,
+            candles: candleData
+          };
+        } catch (err) {
+          return { symbol: idx.symbol, name: idx.name, price: 0, change: 0, changePercent: 0, candles: [] };
+        }
+      })
+    );
+
+    res.json([bitcoin, ...fuelResults]);
+  } catch (error) {
+    console.error('Error fetching extra indices charts:', error);
+    res.status(500).json({ error: 'Failed to fetch extra indices charts' });
+  }
+});
+
 // Developer Dashboard — full system status (admin only)
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
 

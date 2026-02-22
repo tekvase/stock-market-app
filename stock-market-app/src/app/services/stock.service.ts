@@ -361,4 +361,14 @@ export class StockService {
       })
     );
   }
+
+  // Extra indices: Bitcoin, Crude Oil, Natural Gas
+  getExtraIndicesCharts(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/extra-indices/charts`).pipe(
+      catchError(error => {
+        console.error('Error fetching extra indices charts:', error);
+        return of([]);
+      })
+    );
+  }
 }
