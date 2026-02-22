@@ -965,10 +965,9 @@ app.get('/api/extra-indices/charts', async (req, res) => {
       console.error('Bitcoin fetch error:', err.message);
     }
 
-    // Crude Oil via USO ETF, Natural Gas via UNG ETF
+    // Crude Oil via USO ETF
     const FUEL_INDICES = [
-      { symbol: 'USO', name: 'Crude Oil' },
-      { symbol: 'UNG', name: 'Natural Gas' }
+      { symbol: 'USO', name: 'Crude Oil' }
     ];
 
     const fuelResults = await Promise.all(
