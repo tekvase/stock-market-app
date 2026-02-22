@@ -72,9 +72,15 @@
   padding: 16px 20px;
   box-shadow: 0 4px 16px var(--shadow);
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 8px;
+  overflow: visible;
+}
+
+.header-top-row {
+  display: flex;
   align-items: flex-start;
-  flex-wrap: wrap;
+  justify-content: space-between;
   gap: 8px;
 }
 
@@ -114,6 +120,30 @@
   font-size: 0.9rem;
   color: var(--text-subtle);
   margin: 2px 0 0 0;
+}
+
+/* Page close button - hidden on desktop, shown on mobile */
+.header-close-btn {
+  display: none;
+}
+
+.name-country-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.close-pos-btn {
+  background: var(--accent-red);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .price-section {
@@ -202,6 +232,14 @@
 .trade-pl-value {
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.trade-pl-value.positive {
+  color: var(--accent-green);
+}
+
+.trade-pl-value.negative {
+  color: var(--accent-red);
 }
 
 .close-pos-sm {
@@ -709,11 +747,38 @@ tbody tr:hover {
     padding: 12px;
   }
 
+  .back-button {
+    display: none;
+  }
+
+  .header-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: none;
+    background: #7c3aed;
+    color: #fff;
+    font-size: 0.9rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .detail-content {
+    gap: 8px;
+  }
+
   .stock-header {
-    flex-direction: row;
-    flex-wrap: wrap;
-    padding: 12px 14px;
-    gap: 4px;
+    padding: 10px 14px;
+    gap: 2px;
+  }
+
+  .header-top-row {
+    align-items: center;
   }
 
   .title-section {
@@ -725,12 +790,21 @@ tbody tr:hover {
     text-align: right;
   }
 
+  .price-section .price-change {
+    display: none;
+  }
+
   .stock-symbol {
     font-size: 1.4rem;
   }
 
   .stock-name {
     font-size: 0.85rem;
+    margin: 0;
+  }
+
+  .company-country {
+    margin: 0;
   }
 
   .current-price {
@@ -760,19 +834,13 @@ tbody tr:hover {
     font-size: 0.75rem;
   }
 
-  .close-pos-sm {
-    width: 24px;
-    height: 24px;
-    font-size: 0.9rem;
-  }
-
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    gap: 6px;
   }
 
   .stat-card {
-    padding: 8px 10px;
+    padding: 6px 10px;
   }
 
   .stat-value {
@@ -781,7 +849,7 @@ tbody tr:hover {
 
   /* Chart */
   .chart-section {
-    padding: 16px;
+    padding: 12px;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -801,7 +869,15 @@ tbody tr:hover {
   .analyst-card,
   .news-section,
   .history-table {
-    padding: 16px;
+    padding: 12px;
+  }
+
+  .description-card h2,
+  .analyst-card h2,
+  .news-section h2,
+  .chart-section h2 {
+    font-size: 1.05rem;
+    margin-bottom: 8px;
   }
 
   .analyst-legend {

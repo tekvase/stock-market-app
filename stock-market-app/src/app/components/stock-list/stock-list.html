@@ -724,13 +724,6 @@
             (keydown.enter)="addEarningsSymbol()"
             maxlength="10"
           />
-          <input
-            type="date"
-            class="add-date-input-v2"
-            [(ngModel)]="addEarningsDateInput"
-            (keydown.enter)="addEarningsSymbol()"
-            title="Optional: set date for stocks not on Finnhub"
-          />
           <button class="add-symbol-btn-v2" (click)="addEarningsSymbol()" [disabled]="addingEarningsSymbol || !addEarningsSymbolInput.trim()">
             {{ addingEarningsSymbol ? '...' : '+' }}
           </button>

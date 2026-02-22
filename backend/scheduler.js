@@ -10,7 +10,6 @@ const schedulerHistory = {
   dailyRefresh: { lastRun: null, lastStatus: null, lastDuration: null },
   monthlyEarnings: { lastRun: null, lastStatus: null, lastDuration: null },
   aiDailyPicks: { lastRun: null, lastStatus: null, lastDuration: null },
-  quickSeed: { lastRun: null, lastStatus: null, lastDuration: null },
   logs: [] // keep last 50 log entries
 };
 
@@ -243,8 +242,9 @@ async function refreshEarnings() {
 // ========================
 
 // Dedicated batch rate limiter (separate from server.js live requests)
+// 150 calls/min plan — 60 reserved for batch, 80 for live user requests
 const batchTimestamps = [];
-const BATCH_MAX_PER_MINUTE = 55;
+const BATCH_MAX_PER_MINUTE = 60;
 
 async function waitForBatchSlot() {
   const now = Date.now();
@@ -270,8 +270,8 @@ async function batchFinnhubRequest(endpoint, params = {}) {
     return response.data;
   } catch (error) {
     if (error.response && error.response.status === 429) {
-      console.warn('Batch rate limit hit, waiting 15s...');
-      await new Promise(r => setTimeout(r, 15000));
+      console.warn('Batch rate limit hit, waiting 5s...');
+      await new Promise(r => setTimeout(r, 5000));
       return batchFinnhubRequest(endpoint, params);
     }
     return null;
@@ -517,115 +517,6 @@ function generateReasonText(pick) {
   }
 
   return reasons.slice(0, 3).join('. ') + '.';
-}
-
-// Quick seed with popular stocks (runs on startup for immediate UI data)
-const QUICK_SEED_STOCKS = [
-  'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'BRK.B', 'JPM', 'V',
-  'UNH', 'MA', 'HD', 'PG', 'JNJ', 'ABBV', 'CRM', 'NFLX', 'AMD', 'COST',
-  'PEP', 'ADBE', 'KO', 'MRK', 'LLY', 'AVGO', 'CSCO', 'TMO', 'ACN', 'MCD',
-  'INTC', 'NKE', 'DIS', 'QCOM', 'TXN', 'AMGN', 'PYPL', 'ISRG', 'AMAT', 'BKNG',
-  'BA', 'GS', 'CAT', 'DE', 'SQ', 'SHOP', 'PLTR', 'RIVN', 'SOFI', 'COIN'
-];
-
-async function quickSeedPicks() {
-  try {
-    const today = new Date().toISOString().split('T')[0];
-    const existingCount = await db.getAiPicksCount(today);
-    if (existingCount > 0) {
-      console.log(`Quick seed: ${existingCount} picks already exist for today. Skipping.`);
-      return;
-    }
-
-    // Include all active watchlist stocks so users always see AI scores for their holdings
-    let watchlistSymbols = [];
-    try {
-      const watchlistResult = await pool.query("SELECT DISTINCT symbol FROM user_stocktrades WHERE status = 'active'");
-      watchlistSymbols = watchlistResult.rows.map(r => r.symbol).filter(s => s && !QUICK_SEED_STOCKS.includes(s));
-      if (watchlistSymbols.length > 0) {
-        console.log(`📋 Adding ${watchlistSymbols.length} watchlist stocks: ${watchlistSymbols.join(', ')}`);
-      }
-    } catch (e) {
-      // ignore if table doesn't exist yet
-    }
-
-    const allSeedStocks = [...QUICK_SEED_STOCKS, ...watchlistSymbols];
-    console.log(`⚡ Quick seed: Loading ${allSeedStocks.length} stocks for immediate UI...`);
-    const startTime = Date.now();
-    const picks = [];
-
-    // Fetch market conditions for score adjustments
-    const marketConditions = await getMarketConditions();
-    console.log(`📊 Quick seed market: regime=${marketConditions.regime}, SPY=${marketConditions.spyChange}%, QQQ=${marketConditions.qqqChange}%`);
-
-    for (const symbol of allSeedStocks) {
-      try {
-        const [recs, quote, profile, metrics] = await Promise.all([
-          batchFinnhubRequest('/stock/recommendation', { symbol }).catch(() => []),
-          batchFinnhubRequest('/quote', { symbol }).catch(() => null),
-          batchFinnhubRequest('/stock/profile2', { symbol }).catch(() => null),
-          batchFinnhubRequest('/stock/metric', { symbol, metric: 'all' }).catch(() => null)
-        ]);
-
-        const latest = recs && recs.length > 0 ? recs[0] : null;
-        if (!latest || !quote || quote.c <= 0) continue;
-
-        const total = (latest.strongBuy || 0) + (latest.buy || 0) + (latest.hold || 0) + (latest.sell || 0) + (latest.strongSell || 0);
-        if (total === 0) continue;
-
-        const m = metrics?.metric || {};
-        const week13Return = m['13WeekPriceReturnDaily'] ?? null;
-        const buyRatio = Math.round(((latest.strongBuy || 0) + (latest.buy || 0)) / total * 100);
-        const pick = {
-          symbol,
-          strong_buy: latest.strongBuy || 0,
-          buy: latest.buy || 0,
-          hold: latest.hold || 0,
-          sell: latest.sell || 0,
-          strong_sell: latest.strongSell || 0,
-          buy_ratio: buyRatio,
-          total_analysts: total,
-          consensus: getConsensus(buyRatio),
-          name: profile?.name || symbol,
-          sector: profile?.finnhubIndustry || '',
-          logo: profile?.logo || '',
-          price: quote.c || 0,
-          change: quote.d || 0,
-          change_percent: quote.dp || 0,
-          avg_volume: m['10DayAverageTradingVolume'] || 0,
-          market_cap: m['marketCapitalization'] || 0,
-          eps_growth: m['epsGrowthTTMYoy'] ?? null,
-          revenue_growth: m['revenueGrowthTTMYoy'] ?? null,
-          pe_ratio: m['peBasicExclExtraTTM'] ?? null,
-          week_13_return: week13Return,
-          above_50_ma: week13Return !== null ? week13Return > 0 : false,
-          sentiment_score: 0,
-          sentiment_label: 'Neutral',
-          momentum_score: ((Math.max(-5, Math.min(5, quote.dp || 0)) + 5) / 10) * 100,
-          news_positive_count: 0,
-          news_negative_count: 0,
-          news_total_count: 0
-        };
-        pick.ai_score = calculateAiScore(pick.buy_ratio, pick.change_percent, 0, pick.eps_growth, pick.revenue_growth, pick.week_13_return, marketConditions, pick);
-        pick.market_regime = marketConditions.regime;
-        pick.category = assignCategory(pick);
-        pick.reason_text = generateReasonText(pick);
-        pick.pick_date = today;
-        picks.push(pick);
-      } catch (err) {
-        // skip
-      }
-    }
-
-    if (picks.length > 0) {
-      picks.sort((a, b) => b.ai_score - a.ai_score);
-      const inserted = await db.bulkUpsertAiPicks(picks);
-      const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`⚡ Quick seed complete: ${inserted} picks saved in ${duration}s`);
-    }
-  } catch (error) {
-    console.error('Quick seed error:', error.message);
-  }
 }
 
 // Main 4-phase AI Daily Picks batch job
@@ -909,9 +800,6 @@ function initializeScheduler() {
   });
 
   console.log('✅ AI Daily Picks batch scheduled for 1:00 AM');
-
-  // Quick seed on startup (50 popular stocks for immediate UI), then full batch runs at 1 AM
-  quickSeedPicks();
 
   // Optional: Schedule more frequent updates during market hours
   const marketHoursJob = cron.schedule('*/15 9-16 * * 1-5', async () => {

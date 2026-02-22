@@ -583,7 +583,7 @@ export class StockList implements OnInit, OnDestroy {
     this.loadingInsiders = true;
     const symbols = this.stocks.map(s => s.symbol);
     this.stockService.getInsiderTrades(symbols).subscribe({
-      next: (data) => { this.insiderTrades = data; this.loadingInsiders = false; this.cdr.detectChanges(); },
+      next: (data) => { this.insiderTrades = data.sort((a: any, b: any) => a.symbol.localeCompare(b.symbol)); this.loadingInsiders = false; this.cdr.detectChanges(); },
       error: () => { this.loadingInsiders = false; this.cdr.detectChanges(); }
     });
   }

@@ -13,20 +13,28 @@
   <div *ngIf="!loading && stock" class="detail-content">
     <!-- Header: Symbol, Name, Price, Trade Info -->
     <div class="stock-header">
-      <div class="title-section">
-        <div class="symbol-row">
-          <h1 class="stock-symbol">{{ stock.symbol }}</h1>
-          <span class="sector-badge" *ngIf="details?.sector">{{ details.sector }}</span>
+      <div class="header-top-row">
+        <div class="title-section">
+          <div class="symbol-row">
+            <h1 class="stock-symbol">{{ stock.symbol }}</h1>
+            <span class="sector-badge" *ngIf="details?.sector">{{ details.sector }}</span>
+            <button class="header-close-btn" (click)="goBack()">&times;</button>
+          </div>
         </div>
-        <p class="stock-name">{{ stock.name }}</p>
-        <p class="company-country" *ngIf="details?.country">{{ details.country }}</p>
+        <div class="price-section">
+          <div class="current-price">{{ stock.price | currency }}</div>
+          <div class="price-change" [ngClass]="stock.change >= 0 ? 'positive' : 'negative'">
+            <span>{{ stock.change >= 0 ? '+' : '' }}{{ stock.change | number:'1.2-2' }}</span>
+            <span>({{ stock.change >= 0 ? '+' : '' }}{{ stock.changePercent | number:'1.2-2' }}%)</span>
+          </div>
+        </div>
       </div>
-      <div class="price-section">
-        <div class="current-price">{{ stock.price | currency }}</div>
-        <div class="price-change" [ngClass]="stock.change >= 0 ? 'positive' : 'negative'">
-          <span>{{ stock.change >= 0 ? '+' : '' }}{{ stock.change | number:'1.2-2' }}</span>
-          <span>({{ stock.change >= 0 ? '+' : '' }}{{ stock.changePercent | number:'1.2-2' }}%)</span>
+      <div class="name-country-row">
+        <div>
+          <p class="stock-name">{{ stock.name }}</p>
+          <p class="company-country" *ngIf="details?.country">{{ details.country }}</p>
         </div>
+        <button class="close-pos-btn" *ngIf="tradeData" (click)="openCloseDialog()">Close Position</button>
       </div>
       <div class="header-trade-row" *ngIf="tradeData">
         <div class="trade-inline-field">
@@ -47,7 +55,6 @@
             ({{ stock.price >= tradeData.buyPrice ? '+$' : '-$' }}{{ (getTradePL() >= 0 ? getTradePL() : -getTradePL()) | number:'1.2-2' }})
           </span>
         </div>
-        <button class="close-pos-sm" (click)="openCloseDialog()">&times;</button>
       </div>
     </div>
 
@@ -102,7 +109,7 @@
       </div>
       <div class="stat-card" *ngIf="details?.ipo">
         <div class="stat-label">IPO Date</div>
-        <div class="stat-value">{{ details.ipo }}</div>
+        <div class="stat-value">{{ formatDate(details.ipo) }}</div>
       </div>
     </div>
 

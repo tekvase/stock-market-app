@@ -66,10 +66,10 @@ function setCache(key, data) {
   cache[key] = { data, time: Date.now() };
 }
 
-// Rate limiter for Finnhub API (free tier: 60 calls/minute)
+// Rate limiter for Finnhub API (150 calls/minute plan — reserve 80 for live, 60 for batch)
 const requestQueue = [];
 let activeRequests = 0;
-const MAX_REQUESTS_PER_MINUTE = 55; // stay under 60 limit
+const MAX_REQUESTS_PER_MINUTE = 80;
 const requestTimestamps = [];
 
 function canMakeRequest() {
@@ -1880,6 +1880,7 @@ async function startServer() {
     await db.initializeTable();
     await db.initializeUsersTable();
     await db.initializePasswordResetTable();
+    await pool.query('DROP TABLE IF EXISTS password_reset_tokens').catch(() => {});
     await db.initializeEarningsConstraint();
     await db.initializeMetricExplanationsTable();
     await db.initializeOptionTradesTable();
